@@ -440,54 +440,259 @@ func _make_level(name: String, tagline: String, layout: Array, palette: Dictiona
 
 func _build_generated_levels(start_index: int, target_count: int, candy_palettes: Array, sinister_palettes: Array) -> Array:
 	var results: Array = []
-	var candy_titles = [
-		"Jelly Orbit", "Sugar Sprint", "Bonbon Bloom", "Fizzy Parade", "Marshmallow Loop",
-		"Lemon Pop", "Bubble Waltz", "Toffee Orbit", "Egg Hunt", "Caramel Drift",
-		"Confetti Ride", "Neon Basket", "Bunny Hop", "Candy Wheels", "Sprinkle Tower",
-		"Ribbon Crash", "Happy Capsule", "Joy Machine", "Lollipop Harbor", "Sweet Circuit"
-	]
-	var candy_taglines = [
-		"Keep the rainbow bouncing", "Spring sugar in motion", "Too bright to fail",
-		"Crash through the jelly sky", "A carnival made of frosting", "The aisle goes neon",
-		"Pocket-sized easter chaos", "Candy rain over chrome", "Soft colors, hard rebounds",
-		"Push deeper into the sweets", "Turn the sugar storm louder", "Every color wants to pop"
-	]
-	var sinister_titles = [
-		"Ash Choir", "Black Sugar", "Dead Arcade", "Ruin Waltz", "The Hollow Shelf",
-		"Worn Halo", "Night Conveyor", "Rust Bloom", "Cold Vault", "Ember Teeth"
-	]
-	var sinister_taglines = [
-		"The candy store is rotting", "Ash falls where glitter was", "The aisle remembers you",
-		"Only the bounce stays bright", "Everything sweet has gone stale", "The sugar fights back",
-		"An arcade after the sirens", "Under the glaze, only ruin"
-	]
 	var candy_motifs = [
 		"diamond", "wave", "rings", "bunny", "eggs", "basket", "carrot", "clown",
 		"car", "bicycle", "heart", "crown", "castle", "pinwheel", "flower", "capsule",
 		"ribbon", "rocket", "weave", "stairs"
 	]
 	var sinister_motifs = [
-		"skull", "vault", "serpent", "hourglass", "spiral", "eclipse", "tomb", "tower", "sigil", "maw"
+		"skull", "vault", "serpent", "hourglass", "spiral", "eclipse", "tomb", "tower", "sigil", "maw",
+		"cage", "altar", "thorns", "cathedral", "graveyard", "idol", "claw", "furnace", "mask", "bones"
 	]
 	var candy_words = ["BE KIND", "LOVE CANDY", "HOP HOP", "SWEET DAY", "SOFT GLOW", "JOY POP"]
-	var sinister_words = ["I WAIT", "I SEE", "NO EXIT", "WE WATCH", "ASH FALLS", "COLD SUGAR"]
+	var sinister_words = [
+		"I WAIT", "I SEE", "NO EXIT", "WE WATCH", "ASH FALLS", "COLD SUGAR", "STAY STILL", "LOW LIGHT",
+		"IT KNOWS", "LAST GLOW", "BLACK RAIN", "HUSH NOW", "NO MERCY", "DUST SPEAKS", "CANDY DIES",
+		"DO NOT RUN", "THEY STARE", "NIGHT WINS", "ASH WATCH"
+	]
 
 	while start_index + results.size() < target_count:
 		var level_number = start_index + results.size() + 1
 		var sinister = level_number % 5 == 0
+		var sinister_index = int(level_number / 5) - 1
 		var palette_pool = sinister_palettes if sinister else candy_palettes
-		var title_pool = sinister_titles if sinister else candy_titles
-		var tagline_pool = sinister_taglines if sinister else candy_taglines
 		var motif_pool = sinister_motifs if sinister else candy_motifs
 		var word_pool = sinister_words if sinister else candy_words
 		var palette = palette_pool[level_number % palette_pool.size()]
-		var use_text = level_number % 7 == 0 or level_number % 11 == 0
-		var layout = _generate_phrase_layout(word_pool[level_number % word_pool.size()], sinister, level_number) if use_text else _generate_pattern_layout(motif_pool[level_number % motif_pool.size()], sinister, level_number)
-		var name = "%s %02d" % [title_pool[level_number % title_pool.size()], level_number]
-		var tagline = tagline_pool[(level_number * 3) % tagline_pool.size()]
+		var use_text = false
+		if sinister:
+			use_text = sinister_index >= motif_pool.size()
+		else:
+			use_text = level_number % 7 == 0 or level_number % 11 == 0
+		var motif = word_pool[sinister_index % word_pool.size()] if use_text and sinister else (word_pool[level_number % word_pool.size()] if use_text else (motif_pool[sinister_index % motif_pool.size()] if sinister else motif_pool[level_number % motif_pool.size()]))
+		var layout = _generate_phrase_layout(motif, sinister, level_number) if use_text else _generate_pattern_layout(motif, sinister, level_number)
+		var name = _generated_level_name(level_number, motif, sinister, use_text)
+		var tagline = _generated_level_tagline(level_number, motif, sinister, use_text)
 		results.append(_make_level(name, tagline, layout, palette, sinister))
 
 	return results
+
+
+func _generated_level_name(level_number: int, motif: String, sinister: bool, use_text: bool) -> String:
+	var candy_prefixes = [
+		"Jelly", "Sparkle", "Bonbon", "Fizzy", "Marshmallow", "Lemon", "Bubble", "Toffee", "Caramel", "Confetti",
+		"Neon", "Bunny", "Sprinkle", "Ribbon", "Lollipop", "Velvet", "Sunny", "Sugar", "Glitter", "Candy"
+	]
+	var sinister_prefixes = [
+		"Ashen", "Hollow", "Worn", "Blackglass", "Rust", "Silent", "Bleak", "Cold", "Dread", "Ember",
+		"Grave", "Sunless", "Static", "Cinder", "Broken", "Last", "Null", "Feral", "Spent"
+	]
+	var prefix_pool = sinister_prefixes if sinister else candy_prefixes
+	var prefix = prefix_pool[((level_number / 5) if sinister else level_number) % prefix_pool.size()]
+	if use_text:
+		return "%s Message %02d" % [prefix, level_number]
+	return "%s %s %02d" % [prefix, _motif_title(motif), level_number]
+
+
+func _generated_level_tagline(level_number: int, motif: String, sinister: bool, use_text: bool) -> String:
+	var candy_openers = [
+		"Keep the rainbow bouncing", "Spring sugar in motion", "Too bright to fail", "Crash through the jelly sky",
+		"A carnival made of frosting", "The aisle goes neon", "Pocket-sized easter chaos", "Candy rain over chrome",
+		"Soft colors, hard rebounds", "Push deeper into the sweets", "Turn the sugar storm louder", "Every color wants to pop",
+		"More glow, less mercy", "Bounce through the sugar rush", "A chorus of wrappers and light", "Glitter under pressure"
+	]
+	var sinister_openers = [
+		"The candy store is rotting", "Ash falls where glitter was", "The aisle remembers you", "Only the bounce stays bright",
+		"Everything sweet has gone stale", "The sugar fights back", "An arcade after the sirens", "Under the glaze, only ruin",
+		"The wrappers whisper again", "The shelf light has died", "Dust gathers under the syrup", "The room keeps watching"
+	]
+	var candy_closers = [
+		"with %s in the walls", "under a sugar-storm sky", "through the sparkle machine", "before the frosting cools",
+		"with all colors turned loud", "while the wrappers sing", "under the candyland grid", "before the syrup settles"
+	]
+	var sinister_closers = [
+		"around the %s", "under the dead fluorescents", "while the glaze flakes away", "inside the ruined aisle",
+		"where the arcade forgot its lights", "with ash in every rebound", "after the sugar went bad", "under the stale neon"
+	]
+	var opener_pool = sinister_openers if sinister else candy_openers
+	var closer_pool = sinister_closers if sinister else candy_closers
+	var opener = opener_pool[(level_number * 3 + motif.length()) % opener_pool.size()]
+	var closer = closer_pool[(level_number * 5 + motif.length()) % closer_pool.size()]
+	if use_text:
+		return opener
+	return "%s %s" % [opener, closer % _motif_tagline_label(motif)]
+
+
+func _motif_title(motif: String) -> String:
+	match motif:
+		"diamond":
+			return "Diamond"
+		"wave":
+			return "Current"
+		"rings":
+			return "Orbit"
+		"bunny":
+			return "Bunny"
+		"eggs":
+			return "Egg Bloom"
+		"basket":
+			return "Basket"
+		"carrot":
+			return "Carrot"
+		"clown":
+			return "Parade"
+		"car":
+			return "Cruiser"
+		"bicycle":
+			return "Spokes"
+		"heart":
+			return "Heart"
+		"crown":
+			return "Crown"
+		"castle":
+			return "Castle"
+		"pinwheel":
+			return "Pinwheel"
+		"flower":
+			return "Bloom"
+		"capsule":
+			return "Capsule"
+		"ribbon":
+			return "Ribbon"
+		"rocket":
+			return "Rocket"
+		"weave":
+			return "Weave"
+		"stairs":
+			return "Stairs"
+		"skull":
+			return "Skull"
+		"vault":
+			return "Vault"
+		"serpent":
+			return "Serpent"
+		"hourglass":
+			return "Hourglass"
+		"spiral":
+			return "Spiral"
+		"eclipse":
+			return "Eclipse"
+		"tomb":
+			return "Tomb"
+		"tower":
+			return "Tower"
+		"cage":
+			return "Cage"
+		"altar":
+			return "Altar"
+		"thorns":
+			return "Thorns"
+		"cathedral":
+			return "Cathedral"
+		"graveyard":
+			return "Graveyard"
+		"idol":
+			return "Idol"
+		"claw":
+			return "Claw"
+		"furnace":
+			return "Furnace"
+		"mask":
+			return "Mask"
+		"bones":
+			return "Bones"
+		"sigil":
+			return "Sigil"
+		"maw":
+			return "Maw"
+		_:
+			return motif.capitalize()
+
+
+func _motif_tagline_label(motif: String) -> String:
+	match motif:
+		"diamond":
+			return "cut glass"
+		"wave":
+			return "tidal light"
+		"rings":
+			return "orbiting sugar"
+		"bunny":
+			return "rabbit tracks"
+		"eggs":
+			return "painted shells"
+		"basket":
+			return "woven sugar"
+		"carrot":
+			return "spring roots"
+		"clown":
+			return "painted grins"
+		"car":
+			return "chrome candy"
+		"bicycle":
+			return "spinning spokes"
+		"heart":
+			return "soft hearts"
+		"crown":
+			return "candied royalty"
+		"castle":
+			return "frosted walls"
+		"pinwheel":
+			return "turning wrappers"
+		"flower":
+			return "sugar petals"
+		"capsule":
+			return "glow shells"
+		"ribbon":
+			return "ribbon trails"
+		"rocket":
+			return "sweet exhaust"
+		"weave":
+			return "stitched candy"
+		"stairs":
+			return "stacked steps"
+		"skull":
+			return "empty teeth"
+		"vault":
+			return "sealed doors"
+		"serpent":
+			return "coiled sugar"
+		"hourglass":
+			return "falling time"
+		"spiral":
+			return "deep loops"
+		"eclipse":
+			return "dead sun"
+		"tomb":
+			return "sealed stone"
+		"tower":
+			return "dark watch"
+		"cage":
+			return "barred dark"
+		"altar":
+			return "silent stone"
+		"thorns":
+			return "hooked vines"
+		"cathedral":
+			return "dead arches"
+		"graveyard":
+			return "cold plots"
+		"idol":
+			return "empty worship"
+		"claw":
+			return "reaching dark"
+		"furnace":
+			return "burned air"
+		"mask":
+			return "borrowed faces"
+		"bones":
+			return "dry remains"
+		"sigil":
+			return "burned marks"
+		"maw":
+			return "hungry dark"
+		_:
+			return motif.to_lower()
 
 
 func _generate_pattern_layout(motif: String, sinister: bool, variant: int) -> Array:
@@ -658,6 +863,61 @@ func _generate_pattern_layout(motif: String, sinister: bool, variant: int) -> Ar
 			_draw_rect_fill(grid, 10, 11, 10, 2, sinister, variant + 2)
 			for spike in [12, 15, 18]:
 				_draw_line(grid, spike, 2, spike + 1, 0, sinister, variant + spike, 1)
+		"cage":
+			_draw_rect_outline(grid, 6, 2, 18, 10, sinister, variant, 1)
+			for x in range(9, 23, 3):
+				_draw_line(grid, x, 2, x, 11, sinister, variant + x, 1)
+			_draw_line(grid, 9, 6, 21, 6, true, variant + 4, 1)
+		"altar":
+			_draw_rect_fill(grid, 9, 7, 12, 3, sinister, variant)
+			_draw_rect_fill(grid, 12, 4, 6, 3, sinister, variant + 2)
+			_draw_line(grid, 15, 2, 15, 11, true, variant + 4, 1)
+			_draw_line(grid, 11, 6, 19, 6, true, variant + 5, 1)
+		"thorns":
+			for x in range(3, 27, 3):
+				_draw_line(grid, x, 11, x + 2, 2 + int((x + variant) % 3), sinister, variant + x, 1)
+				_draw_line(grid, x + 2, 11, x + 5, 4 + int((x + variant) % 2), sinister, variant + x + 2, 1)
+		"cathedral":
+			_draw_rect_fill(grid, 10, 3, 10, 8, sinister, variant)
+			_draw_line(grid, 10, 3, 15, 0, sinister, variant + 1, 1)
+			_draw_line(grid, 20, 3, 15, 0, sinister, variant + 2, 1)
+			_draw_rect_fill(grid, 7, 6, 3, 5, sinister, variant + 3)
+			_draw_rect_fill(grid, 20, 6, 3, 5, sinister, variant + 5)
+			_draw_line(grid, 15, 4, 15, 10, true, variant + 7, 1)
+		"graveyard":
+			for center in [6.0, 11.0, 16.0, 21.0]:
+				_draw_rect_fill(grid, int(center) - 2, 6, 4, 5, sinister, variant + int(center))
+				_draw_disc(grid, center, 6.0, 2.0, 1.2, sinister, variant + int(center) + 2, false)
+			_draw_line(grid, 3, 11, 26, 11, true, variant + 9, 1)
+		"idol":
+			_draw_disc(grid, 15.0, 5.0, 4.0, 3.4, sinister, variant, false)
+			_draw_rect_fill(grid, 12, 8, 6, 4, sinister, variant + 2)
+			_draw_disc(grid, 13.3, 5.0, 0.8, 1.1, true, variant + 4, false)
+			_draw_disc(grid, 16.7, 5.0, 0.8, 1.1, true, variant + 5, false)
+			_draw_line(grid, 12, 10, 18, 10, true, variant + 6, 1)
+		"claw":
+			for finger in [7, 11, 15, 19, 23]:
+				_draw_line(grid, finger, 1 + int(abs(finger - 15) * 0.15), 15, 11, sinister, variant + finger, 1)
+			_draw_rect_fill(grid, 12, 10, 6, 2, sinister, variant + 3)
+		"furnace":
+			_draw_rect_outline(grid, 8, 3, 14, 9, sinister, variant, 1)
+			_draw_rect_fill(grid, 11, 7, 8, 3, sinister, variant + 2)
+			_draw_line(grid, 15, 4, 15, 6, true, variant + 4, 1)
+			for vent in [10, 13, 16, 19]:
+				_draw_line(grid, vent, 2, vent, 3, sinister, variant + vent, 1)
+		"mask":
+			_draw_disc(grid, 15.0, 6.0, 7.2, 4.4, sinister, variant, false)
+			_draw_disc(grid, 11.5, 6.2, 1.7, 1.2, true, variant + 2, false)
+			_draw_disc(grid, 18.5, 6.2, 1.7, 1.2, true, variant + 3, false)
+			_draw_line(grid, 13, 9, 17, 9, true, variant + 4, 1)
+			_draw_line(grid, 15, 5, 14, 8, true, variant + 5, 1)
+		"bones":
+			_draw_disc(grid, 8.0, 4.0, 2.0, 1.6, sinister, variant, false)
+			_draw_disc(grid, 22.0, 4.0, 2.0, 1.6, sinister, variant + 1, false)
+			_draw_disc(grid, 8.0, 10.0, 2.0, 1.6, sinister, variant + 2, false)
+			_draw_disc(grid, 22.0, 10.0, 2.0, 1.6, sinister, variant + 3, false)
+			_draw_line(grid, 9, 5, 21, 9, sinister, variant + 4, 1)
+			_draw_line(grid, 9, 9, 21, 5, sinister, variant + 5, 1)
 		"sigil":
 			_draw_disc(grid, 15.0, 7.0, 7.0, 4.6, sinister, variant, true, 0.22)
 			_draw_line(grid, 15, 2, 15, 12, sinister, variant + 1, 1)
@@ -1363,7 +1623,7 @@ func _load_level(index: int) -> void:
 	for line_value in layout:
 		column_count = max(column_count, String(line_value).length())
 	var row_count = layout.size()
-	var gap = Vector2(3.0, 3.0)
+	var gap = Vector2(4.0, 4.0)
 	var usable_width = PLAYFIELD.size.x - 68.0
 	var usable_height = min(420.0, PLAYFIELD.size.y * 0.62)
 	var brick_size = Vector2(
@@ -2094,21 +2354,29 @@ func _draw_bricks() -> void:
 		var glow_color = _theme_color(Color(brick["glow"]), "glow")
 		var body_color = _theme_color(Color(brick["color"]), "body")
 		var highlight_color = _theme_color(Color(brick["highlight"]), "highlight")
-		draw_rect(rect.grow(6.0), glow_color, true)
-		draw_rect(rect, body_color, true)
-		draw_rect(Rect2(rect.position + Vector2(0, 2), Vector2(rect.size.x, rect.size.y * 0.28)), highlight_color, true)
-		draw_rect(Rect2(rect.position + Vector2(4, 4), rect.size - Vector2(8, 8)), body_color.darkened(0.18), false, 2.0)
+		var shell_color = Color("18141f", 0.86) if sinister else Color("13213d", 0.72)
+		var shadow_rect = Rect2(rect.position + Vector2(0, 2), rect.size)
+		var body_rect = rect.grow(-1.0)
+		var inner_rect = body_rect.grow(-2.0)
+		var glow_rect = body_rect.grow(2.0)
+		glow_color.a *= 0.42 if sinister else 0.35
+		draw_rect(glow_rect, glow_color, true)
+		draw_rect(shadow_rect, Color("02050a", 0.18 if sinister else 0.14), true)
+		draw_rect(rect, shell_color, true)
+		draw_rect(body_rect, body_color, true)
+		draw_rect(Rect2(body_rect.position + Vector2(0, 1), Vector2(body_rect.size.x, max(3.0, body_rect.size.y * 0.24))), highlight_color, true)
+		draw_rect(inner_rect, body_color.darkened(0.2), false, 1.0)
 		if sinister:
-			draw_line(rect.position + Vector2(5, rect.size.y * 0.38), rect.end - Vector2(5, rect.size.y * 0.38), Color("f4eee5", 0.08), 1.0)
-			draw_line(rect.position + Vector2(rect.size.x * 0.25, 4), rect.position + Vector2(rect.size.x * 0.72, rect.size.y - 5), Color("141414", 0.22), 1.0)
+			draw_line(body_rect.position + Vector2(4, body_rect.size.y * 0.38), body_rect.end - Vector2(4, body_rect.size.y * 0.38), Color("f4eee5", 0.06), 1.0)
+			draw_line(body_rect.position + Vector2(body_rect.size.x * 0.25, 3), body_rect.position + Vector2(body_rect.size.x * 0.72, body_rect.size.y - 4), Color("141414", 0.18), 1.0)
 		if brick["hits_left"] < brick["max_hits"]:
 			var crack_color = Color("e7dfd7", 0.5 if sinister else 0.65)
-			draw_line(rect.position + Vector2(10, 10), rect.end - Vector2(12, 14), crack_color, 2.0)
-			draw_line(rect.position + Vector2(rect.size.x * 0.55, 8), rect.position + Vector2(rect.size.x * 0.35, rect.size.y - 8), crack_color, 2.0)
+			draw_line(body_rect.position + Vector2(8, 7), body_rect.end - Vector2(8, 10), crack_color, 2.0)
+			draw_line(body_rect.position + Vector2(body_rect.size.x * 0.58, 6), body_rect.position + Vector2(body_rect.size.x * 0.36, body_rect.size.y - 6), crack_color, 2.0)
 		if brick.get("explosive", false):
 			var explosive_color = Color("f4e6d6", 0.75 if sinister else 1.0)
-			draw_line(rect.position + Vector2(12, rect.size.y * 0.5), rect.end - Vector2(12, rect.size.y * 0.5), explosive_color, 2.0)
-			draw_line(rect.position + Vector2(rect.size.x * 0.5, 8), rect.position + Vector2(rect.size.x * 0.5, rect.size.y - 8), explosive_color, 2.0)
+			draw_line(body_rect.position + Vector2(10, body_rect.size.y * 0.5), body_rect.end - Vector2(10, body_rect.size.y * 0.5), explosive_color, 2.0)
+			draw_line(body_rect.position + Vector2(body_rect.size.x * 0.5, 6), body_rect.position + Vector2(body_rect.size.x * 0.5, body_rect.size.y - 6), explosive_color, 2.0)
 
 
 func _draw_paddle() -> void:
