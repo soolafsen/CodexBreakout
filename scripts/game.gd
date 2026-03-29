@@ -23,9 +23,9 @@ const POWERUP_META = {
 	"laser": {"label": "L", "title": "Lollipop Laser", "color": Color("ffe666"), "weight": 11.0, "duration": 12.0},
 	"catch": {"label": "C", "title": "Candy Catch", "color": Color("85ff70"), "weight": 11.0, "duration": 12.0},
 	"slow": {"label": "S", "title": "Sugar Slow", "color": Color("9dd2ff"), "weight": 10.0, "duration": 11.0},
-	"extra": {"label": "+", "title": "Extra Ball", "color": Color("ffffff"), "weight": 7.0},
+	"heart": {"label": "H", "title": "Heart", "color": Color("ffffff"), "weight": 7.0},
 	"nova": {"label": "N", "title": "Neon Nova", "color": Color("ff914a"), "weight": 7.0},
-	"shrink": {"label": "-", "title": "Bitter Shrink", "color": Color("ff4c86"), "weight": 10.0, "duration": 10.0, "bad": true}
+	"bomb": {"label": "B", "title": "Bomb Slow", "color": Color("ff4c86"), "weight": 10.0, "duration": 8.0, "bad": true}
 }
 
 const LEVELS = [
@@ -495,7 +495,6 @@ func _refresh_menu_ui() -> void:
 		options_button.visible = false
 		exit_button.visible = true
 		exit_button.text = "Exit Game"
-		back_button.grab_focus()
 		return
 
 	primary_button.visible = true
@@ -534,8 +533,6 @@ func _refresh_menu_ui() -> void:
 			options_button.visible = false
 			exit_button.visible = false
 
-	if primary_button.visible:
-		primary_button.grab_focus()
 
 
 func _open_options() -> void:
@@ -848,18 +845,18 @@ func _update_paddle(delta: float) -> void:
 	var target_width = BASE_PADDLE_WIDTH
 	if active_effects.has("wide"):
 		target_width *= 1.55
-	if active_effects.has("shrink"):
-		target_width *= 0.72
 	paddle["target_width"] = clamp(target_width, 92.0, 320.0)
-	paddle["width"] = lerp(float(paddle["width"]), float(paddle["target_width"]), 1.0 - pow(0.001, delta))
+	var movement_slow = 0.38 if active_effects.has("bomb") else 1.0
+	paddle["width"] = lerp(float(paddle["width"]), float(paddle["target_width"]), 1.0 - pow(0.001, delta * movement_slow))
 
-	var target_x = get_local_mouse_position().x
-	if not Rect2(Vector2.ZERO, size).has_point(get_local_mouse_position()):
-		target_x = paddle["pos"].x
-	target_x += Input.get_action_strength("move_right") * 520.0 * delta
-	target_x -= Input.get_action_strength("move_left") * 520.0 * delta
+	var move_strength = Input.get_action_strength("move_right") - Input.get_action_strength("move_left")
+	var target_x = paddle["pos"].x
+	if abs(move_strength) > 0.01:
+		target_x += move_strength * 1080.0 * delta * movement_slow
+	elif Rect2(Vector2.ZERO, size).has_point(get_local_mouse_position()):
+		target_x = get_local_mouse_position().x
 	target_x = clamp(target_x, PLAYFIELD.position.x + paddle["width"] * 0.5, PLAYFIELD.end.x - paddle["width"] * 0.5)
-	paddle["pos"].x = lerp(float(paddle["pos"].x), target_x, 1.0 - pow(0.0001, delta))
+	paddle["pos"].x = lerp(float(paddle["pos"].x), target_x, 1.0 - pow(0.0001, delta * movement_slow))
 	paddle["vx"] = (paddle["pos"].x - last_paddle_x) / max(delta, 0.001)
 	last_paddle_x = paddle["pos"].x
 
@@ -1006,7 +1003,7 @@ func _damage_brick(brick: Dictionary, hit_point: Vector2, from_nova: bool) -> vo
 	combo_multiplier = min(combo_multiplier + 1, 8)
 	score += 25 * combo_multiplier
 	if brick["hits_left"] > 0:
-		_spawn_particles(hit_point, brick["highlight"], 10, 190.0, 0.32, 3.2)
+		_spawn_particles(hit_point, brick["highlight"], 14, 220.0, 0.38, 3.5)
 		_float_score(hit_point, "CRACK", brick["highlight"])
 		_shake(2.5)
 		_play_sfx("brick_hit", rng.randf_range(0.94, 1.06))
@@ -1017,11 +1014,11 @@ func _damage_brick(brick: Dictionary, hit_point: Vector2, from_nova: bool) -> vo
 	score += points
 	if score > high_score:
 		high_score = score
-	_spawn_particles(hit_point, brick["color"], 26, 310.0, 0.65, 5.6)
-	_spawn_particles(hit_point, Color.WHITE, 8, 160.0, 0.4, 3.0)
+	_spawn_particles(hit_point, brick["color"], 40, 360.0, 0.78, 6.4)
+	_spawn_particles(hit_point, Color.WHITE, 16, 220.0, 0.5, 3.8)
 	_float_score(hit_point, "+%d" % points, brick["highlight"])
-	_flash(brick["glow"], 0.16)
-	_shake(8.0 if brick.get("explosive", false) else 5.5)
+	_flash(brick["glow"], 0.24)
+	_shake(11.0 if brick.get("explosive", false) else 7.5)
 	_play_sfx("explosion" if brick.get("explosive", false) else "brick_break", rng.randf_range(0.92, 1.08))
 
 	if brick.get("explosive", false) and not from_nova:
@@ -1076,8 +1073,8 @@ func _spawn_powerup(position: Vector2) -> void:
 		if roll <= 0.0:
 			selected = key
 			break
-	if settings["cheat"] and selected == "shrink":
-		selected = "extra"
+	if settings["cheat"] and selected == "bomb":
+		selected = "heart"
 
 	var meta: Dictionary = POWERUP_META[selected]
 	powerups.append(
@@ -1111,7 +1108,7 @@ func _collect_powerup(pickup: Dictionary) -> void:
 	_play_sfx("pickup_bad" if meta.get("bad", false) else "pickup_good", rng.randf_range(0.95, 1.08))
 
 	match kind:
-		"wide", "laser", "catch", "slow", "shrink":
+		"wide", "laser", "catch", "slow", "bomb":
 			active_effects[kind] = meta["duration"]
 			if kind == "slow":
 				for ball in balls:
@@ -1119,8 +1116,11 @@ func _collect_powerup(pickup: Dictionary) -> void:
 						ball["vel"] *= 0.8
 		"multi":
 			_split_balls()
-		"extra":
-			lives = min(lives + 1, _max_lives())
+		"heart":
+			if lives < _max_lives():
+				lives = min(lives + 1, _max_lives())
+			else:
+				_split_balls()
 		"nova":
 			_trigger_nova()
 
@@ -1388,8 +1388,10 @@ func _draw_paddle() -> void:
 		Vector2(paddle["pos"].x - paddle["width"] * 0.5, paddle["pos"].y - paddle["height"] * 0.5) + camera_offset,
 		Vector2(paddle["width"], paddle["height"])
 	)
-	draw_rect(rect.grow(12.0), Color("ffe66c", 0.13), true)
-	draw_rect(rect, Color("ff8a23"), true)
+	var shell_color = Color("8a5cff") if active_effects.has("bomb") else Color("ff8a23")
+	var glow_color = Color("ff5bcb", 0.18) if active_effects.has("bomb") else Color("ffe66c", 0.13)
+	draw_rect(rect.grow(12.0), glow_color, true)
+	draw_rect(rect, shell_color, true)
 	draw_rect(Rect2(rect.position + Vector2(0, 2), Vector2(rect.size.x, rect.size.y * 0.38)), Color("fff7bc"), true)
 	draw_rect(Rect2(rect.position + Vector2(6, 5), rect.size - Vector2(12, 10)), Color("ff4eb4"), false, 2.0)
 	draw_rect(Rect2(rect.position, Vector2(22, rect.size.y)), Color("27d8ff"), true)

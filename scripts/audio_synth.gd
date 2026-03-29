@@ -10,19 +10,19 @@ static func create_sfx_library() -> Dictionary:
 		"pause": make_sweep_stream(300.0, 200.0, 0.1, "triangle", 0.4, 0.02),
 		"launch": make_sweep_stream(180.0, 520.0, 0.16, "square", 0.45, 0.04),
 		"paddle": make_sweep_stream(260.0, 180.0, 0.06, "square", 0.26, 0.02),
-		"brick_hit": make_sweep_stream(580.0, 420.0, 0.05, "triangle", 0.18, 0.05),
-		"brick_break": make_sweep_stream(820.0, 260.0, 0.11, "square", 0.38, 0.08),
-		"explosion": make_sweep_stream(240.0, 70.0, 0.28, "noise", 0.65, 0.3),
-		"pickup_good": make_sweep_stream(420.0, 980.0, 0.18, "triangle", 0.38, 0.01),
+		"brick_hit": make_sweep_stream(720.0, 420.0, 0.06, "square", 0.28, 0.06),
+		"brick_break": make_sweep_stream(1120.0, 180.0, 0.14, "square", 0.55, 0.14),
+		"explosion": make_sweep_stream(220.0, 55.0, 0.34, "noise", 0.82, 0.45),
+		"pickup_good": make_sweep_stream(560.0, 1220.0, 0.22, "triangle", 0.46, 0.02),
 		"pickup_bad": make_sweep_stream(240.0, 110.0, 0.18, "saw", 0.36, 0.06),
-		"laser": make_sweep_stream(1100.0, 760.0, 0.08, "square", 0.3, 0.01),
+		"laser": make_sweep_stream(1440.0, 920.0, 0.09, "square", 0.42, 0.02),
 		"level_clear": make_jingle_stream([72, 76, 79, 84], 0.12, "triangle", 0.34),
 		"game_over": make_jingle_stream([72, 68, 63, 56], 0.18, "saw", 0.3)
 	}
 
 
 static func create_music_stream() -> AudioStreamWAV:
-	var bpm = 126.0
+	var bpm = 142.0
 	var step_duration = 60.0 / bpm / 2.0
 	var total_steps = 64
 	var total_seconds = step_duration * total_steps
@@ -30,9 +30,9 @@ static func create_music_stream() -> AudioStreamWAV:
 	var data = PackedByteArray()
 	data.resize(sample_count * 2)
 
-	var lead = [72, 74, 76, 79, 81, 79, 76, 74, 72, 74, 76, 81, 79, 76, 74, 72]
-	var counter = [84, 83, 81, 79, 76, 79, 81, 83]
-	var bass = [36, 36, 41, 41, 43, 43, 41, 41]
+	var lead = [79, 81, 84, 88, 84, 81, 79, 76, 79, 81, 84, 91, 88, 84, 81, 79]
+	var counter = [91, 88, 86, 84, 83, 84, 86, 88]
+	var bass = [36, 36, 43, 43, 41, 41, 43, 43]
 	var chords = [
 		[60, 64, 67],
 		[62, 65, 69],
@@ -54,17 +54,19 @@ static func create_music_stream() -> AudioStreamWAV:
 		var counter_note = counter[(step + 4) % counter.size()]
 		var bass_note = bass[beat % bass.size()]
 		var chord = chords[bar % chords.size()]
+		var arp_note = chord[step % chord.size()]
 
-		sample += voice_note(half_beat_time, step_duration * 0.92, midi_to_hz(lead_note), 0.19, "square", 0.015)
-		sample += voice_note(half_beat_time, step_duration * 0.84, midi_to_hz(counter_note), 0.08, "triangle", 0.03)
-		sample += voice_note(beat_time, step_duration * 1.95, midi_to_hz(bass_note), 0.18, "triangle", 0.0)
+		sample += voice_note(half_beat_time, step_duration * 0.9, midi_to_hz(lead_note), 0.24, "square", 0.01)
+		sample += voice_note(half_beat_time, step_duration * 0.78, midi_to_hz(counter_note), 0.1, "triangle", 0.025)
+		sample += voice_note(half_beat_time, step_duration * 0.7, midi_to_hz(arp_note + 12), 0.07, "square", 0.0)
+		sample += voice_note(beat_time, step_duration * 1.95, midi_to_hz(bass_note), 0.22, "saw", 0.0)
 		for note in chord:
-			sample += voice_note(bar_time, step_duration * 7.5, midi_to_hz(note), 0.035, "sine", 0.0)
+			sample += voice_note(bar_time, step_duration * 7.2, midi_to_hz(note), 0.028, "sine", 0.0)
 
 		if half_beat_time < 0.1:
-			sample += drum_kick(half_beat_time, 0.11, 0.32)
+			sample += drum_kick(half_beat_time, 0.11, 0.42)
 		if step % 4 == 2 and half_beat_time < 0.09:
-			sample += drum_noise(half_beat_time, 0.1, 0.13)
+			sample += drum_noise(half_beat_time, 0.11, 0.18)
 
 		data.encode_s16(i * 2, int(clamp(sample, -1.0, 1.0) * 32767.0))
 
