@@ -2,6 +2,10 @@
 
 Native Godot breakout built to channel DX-Ball 2 energy with louder candy colors, screen shake, particle bursts, multi-ball, lasers, explosive bricks, and falling power-ups.
 
+<p align="center">
+  <img src="assets/frontpage/gameplay-screenshot.png" alt="Candy Breakout Bombast gameplay screenshot" width="1100">
+</p>
+
 ## Play Now
 
 1. Go to [Releases](https://github.com/soolafsen/CodexBreakout/releases/latest).
