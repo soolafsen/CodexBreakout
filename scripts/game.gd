@@ -438,7 +438,7 @@ func _make_level(name: String, tagline: String, layout: Array, palette: Dictiona
 		"stripe": palette["stripe"],
 		"theme": "sinister" if sinister else "candy",
 		"ball_speed_multiplier": 1.2 if sinister else 1.0,
-		"brick_fall_speed": 8.0 if sinister else 4.0,
+		"brick_fall_speed": 10.0 if sinister else 4.0,
 		"bomb_multiplier": 2.0 if sinister else 1.0,
 		"allow_heart": not sinister
 	}
