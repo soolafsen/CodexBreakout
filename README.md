@@ -11,25 +11,13 @@ Native Godot breakout built to channel DX-Ball 2 energy with louder candy colors
 
 No Godot install is required for players.
 
+For source builds and export details, see [Development](docs/development.md).
+
 ## Controls
 
 - `Mouse` or `Left/Right`: move paddle
 - `Click` or `Space`: launch ball / continue / restart
 - `F`: fire lasers when laser mode is active
-
-## Build From Source
-
-Open this folder in Godot and run `main.tscn`, or export a Windows build with:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\export-windows.ps1
-```
-
-That script will:
-
-- download Godot export templates if they are missing
-- export `dist/CandyBreakoutBombast.exe`
-- zip a ready-to-share package at `dist/CandyBreakoutBombast-win64.zip`
 
 ## Notes
 
