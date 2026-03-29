@@ -28,99 +28,7 @@ const POWERUP_META = {
 	"bomb": {"label": "B", "title": "Bomb Slow", "color": Color("ff4c86"), "weight": 10.0, "duration": 8.0, "bad": true}
 }
 
-const LEVELS = [
-	{
-		"name": "Candy Crown",
-		"tagline": "Open the vault",
-		"background": [Color("16052e"), Color("3b1174"), Color("0bb6ff")],
-		"stripe": Color("ff57c8", 0.18),
-		"layout": [
-			"......ABCCBA......",
-			".....ABCDDCBA.....",
-			"....ABCDDXXDCBA...",
-			"...ABCDESSSEDCBA..",
-			"..ABCDESSSSEDCBA..",
-			".ABCDDDEEEEDDDCBA.",
-			"ABCCDDEDDDEDDCCBA.",
-			"ABCCDDEDDDEDDCCBA.",
-			".ABCDDDEEEEDDDCBA.",
-			"..AABBCCDDCCBBA..."
-		]
-	},
-	{
-		"name": "Prism Pulse",
-		"tagline": "Surf the sugar storm",
-		"background": [Color("081633"), Color("1d4bcf"), Color("ff4fbe")],
-		"stripe": Color("8dfff3", 0.18),
-		"layout": [
-			"AA..BB..CC..DD..EE",
-			".AA..BB..CC..DD..E",
-			"..AA..BB..CC..DD..",
-			"...AA..BB..CC..D..",
-			"SSSAAABBXXCCCDDSSS",
-			"...DD..CC..BB..A..",
-			"..DD..CC..BB..AA..",
-			".DD..CC..BB..AA...",
-			"EE..DD..CC..BB..AA",
-			"..SS..EE..XX..SS.."
-		]
-	},
-	{
-		"name": "Sugar Serpent",
-		"tagline": "Bite through the coil",
-		"background": [Color("16071f"), Color("4e0f57"), Color("ff7d39")],
-		"stripe": Color("ffe06f", 0.16),
-		"layout": [
-			"....AABBCCDDEE....",
-			"...AABBDDSSDDEE...",
-			"..AABBXXSSXXDDEE..",
-			".AABBCCDDEECCDDEE.",
-			"AABBDD......DDEEA.",
-			".DDEE..AABB..AABB.",
-			"..DDEECCDDEECCBB..",
-			"...DDEESSSSEECC...",
-			"....CCDDEECCBB....",
-			".....BBCCDDCC....."
-		]
-	},
-	{
-		"name": "Nova Teeth",
-		"tagline": "Stay out of the jaws",
-		"background": [Color("061627"), Color("062f4d"), Color("17d8b5")],
-		"stripe": Color("ff6ed1", 0.15),
-		"layout": [
-			"XX..SS..XX..SS..XX",
-			".XX..SSXXSS..XX..S",
-			"..XX..SSSS..XX..S.",
-			"...XX..SS..XX..S..",
-			"AAAAAABBBBCCCCDDDD",
-			"DDDDCCCCBBBBAAAAAA",
-			"...S..XX..SS..XX..",
-			"..S..XX..SSSS..XX.",
-			".S..XX..SSXXSS..XX",
-			"XX..SS..XX..SS..XX"
-		]
-	},
-	{
-		"name": "Candy Cataclysm",
-		"tagline": "Empty the store",
-		"background": [Color("1a0430"), Color("6a117e"), Color("ffd34d")],
-		"stripe": Color("42f5ff", 0.16),
-		"layout": [
-			"ABCDEEDCBAABCDEEDC",
-			"BCDESSDECBBCDESSDE",
-			"CDEXXSXEDCCDEXXSXE",
-			"DEESSSSEDDDEESSSSE",
-			"EESSDDSSEEEESSDDSS",
-			"XSSDEEDSSXXSSDEEDS",
-			"EESSDDSSEEEESSDDSS",
-			"DEESSSSEDDDEESSSSE",
-			"CDEXXSXEDCCDEXXSXE",
-			"BCDESSDECBBCDESSDE",
-			"ABCDEEDCBAABCDEEDC"
-		]
-	}
-]
+var levels: Array = []
 
 var rng = RandomNumberGenerator.new()
 var paddle = {}
@@ -135,6 +43,7 @@ var score = 0
 var high_score = 0
 var lives = 3
 var level_index = 0
+var current_level = {}
 var combo_multiplier = 1
 var combo_clock = 0.0
 var state = "title"
@@ -199,6 +108,7 @@ func _ready() -> void:
 	rng.randomize()
 	mouse_filter = Control.MOUSE_FILTER_PASS
 	_ensure_input_actions()
+	levels = _build_level_library()
 	_load_progress()
 	_build_audio()
 	_build_ui()
@@ -210,6 +120,320 @@ func _ready() -> void:
 	_ensure_music_state()
 	_refresh_ui()
 	queue_redraw()
+
+
+func _build_level_library() -> Array:
+	var candy_palettes = [
+		{"bg": [Color("16052e"), Color("3b1174"), Color("0bb6ff")], "stripe": Color("ff57c8", 0.18)},
+		{"bg": [Color("081633"), Color("1d4bcf"), Color("ff4fbe")], "stripe": Color("8dfff3", 0.18)},
+		{"bg": [Color("17062a"), Color("5a157e"), Color("ffbf47")], "stripe": Color("68f7ff", 0.16)},
+		{"bg": [Color("102041"), Color("145f88"), Color("8cff72")], "stripe": Color("ffd36c", 0.16)},
+		{"bg": [Color("1a0430"), Color("6a117e"), Color("ffd34d")], "stripe": Color("42f5ff", 0.16)}
+	]
+	var sinister_palettes = [
+		{"bg": [Color("06070d"), Color("1b0f20"), Color("6a1a1a")], "stripe": Color("7d1717", 0.2)},
+		{"bg": [Color("05080f"), Color("12131f"), Color("203c55")], "stripe": Color("6e87a0", 0.18)},
+		{"bg": [Color("09050a"), Color("200c1b"), Color("4a1022")], "stripe": Color("8d2339", 0.18)},
+		{"bg": [Color("070707"), Color("181818"), Color("3a1111")], "stripe": Color("7a2626", 0.2)}
+	]
+
+	return [
+		_make_level("Candy Crown", "Open the vault", [
+			".......AABCCBBAA.......",
+			"......AABCDDDDCBAA......",
+			".....AABCDESSSEDCBA.....",
+			"....AABCDESXXSEDCBA....",
+			"...AABCDDDESSSEDDCBA...",
+			"..AABCCDDEEEEEEDDCCBA..",
+			".AABCCDDEEDDDDEEDDCCBA.",
+			".AABCCDDEEDDDDEEDDCCBA.",
+			"..AABCDDEEEEEEEEDDCBA..",
+			"...AABBCCDDEEDDCCBBA...",
+			".....AABBCCDDCCBBA.....",
+			"........AABBCCAA........"
+		], candy_palettes[0]),
+		_make_level("Prism Pulse", "Surf the sugar storm", [
+			"AA..BB..CC..DD..EE..AA",
+			".AA..BB..CC..DD..EE..A",
+			"..AA..BB..CC..DD..EE..",
+			"...AA..BB..CC..DD..E..",
+			"SSSAAABBXXCCCDDDEESSSS",
+			"...EE..DD..CC..BB..A..",
+			"..EE..DD..CC..BB..AA..",
+			".EE..DD..CC..BB..AA...",
+			"AA..BB..CC..DD..EE..AA",
+			".AA..BB..CC..DD..EE..A",
+			"..SS..EE..XX..DD..SS..",
+			"....AA..BB..CC..DD...."
+		], candy_palettes[1]),
+		_make_level("Bunny Bounce", "Long ears, fast sugar", [
+			".......AA......AA.......",
+			"......ABBA....ABBA......",
+			"......ABBA....ABBA......",
+			".......AA......AA.......",
+			".....CCCDDXXDDCCCDD.....",
+			"....CCDDEESSSSEEDDCC....",
+			"...CCDDEEEEEEEEEEDDCC...",
+			"...CCDDEEXXEEEXXEEDD...",
+			"...CCDDEEEEEEEEEEDDCC...",
+			"....CCDDEDDDDDDDEDD....",
+			".....CCDDEECCEECCDD.....",
+			".......CC......CC......."
+		], candy_palettes[2]),
+		_make_level("Egg Basket", "Spring loot drop", [
+			"....AA....BB....CC....",
+			"...AADD..BBEE..CCDD...",
+			"..AADDEE.BBEEDD.CCDDEE..",
+			"...AADD..BBEE..CCDD...",
+			"........................",
+			"..DDDDDDDDDDDDDDDDDD..",
+			".DEEEEEEEEEEEEEEEEED.",
+			".DEDDDDDDDDDDDDDDDDE.",
+			".DEEEEEEEEEEEEEEEEED.",
+			"..DDEEDD..DDEEDD..DD..",
+			"...DD......DD......D...",
+			"....D......DD......D..."
+		], candy_palettes[3]),
+		_make_level("Skull Eclipse", "Candy night falls", [
+			".....AA..BBCCBB..AA.....",
+			"...AABBCCDDDDDDCCBBAA...",
+			"..AABBCCDDEEESSDDCCBBA..",
+			".AABBCDDEEXXSSXXEEDDCCBA.",
+			".AABBCDDEESSSSSSEEDDCCBA.",
+			".AABBCCDDSSXXSSDDCCBBAA.",
+			"..AABBCCDSSSSSSDDCCBBA..",
+			"..AABBCCDDEESEEEDDCCBA..",
+			"...AABBCCDDEEEDDCCBBA...",
+			"....AABB..DDDD..BBAA....",
+			".....AA....DD....AA.....",
+			"......A....DD....A......"
+		], sinister_palettes[0], true),
+		_make_level("Chocolate Bar", "Break the wrapper", [
+			".EEEE..EEEE..EEEE..EEEE.",
+			".ECCD..ECCD..ECCD..ECCD.",
+			".ECCD..ECCD..ECCD..ECCD.",
+			".EEEE..EEEE..EEEE..EEEE.",
+			"........................",
+			".AABB..AABB..AABB..AABB.",
+			".AABB..AABB..AABB..AABB.",
+			".CCDD..CCDD..CCDD..CCDD.",
+			".CCDD..CCDD..CCDD..CCDD.",
+			".SSXX..SSXX..SSXX..SSXX.",
+			".SSDD..SSDD..SSDD..SSDD.",
+			".AABB..CCDD..EEAA..BBCC."
+		], candy_palettes[4]),
+		_make_level("Carrot Rocket", "Up through the clouds", [
+			"...........AA...........",
+			"..........ABBA..........",
+			".........ABCCBA.........",
+			"........ABCDDCBA........",
+			".......ABCDXXDCBA.......",
+			"......ABCDESSSDCBA......",
+			".....ABCDESSSSEDCBA.....",
+			".....BBCCDDEEEDDCCBB....",
+			"......BBCCDDEEDDCCBB....",
+			".......DD..DDDD..DD.....",
+			"......DD....DD....DD....",
+			".....CC....CCCC....CC..."
+		], candy_palettes[0]),
+		_make_level("Ribbon Wheels", "Spin the sweet ride", [
+			"...AA..............AA...",
+			"..ABBA............ABBA..",
+			".ABCCBA..........ABCCBA.",
+			".ABDDCBA..CCCC..ABDDCBA.",
+			"..ABBA..CCDDDDCC..ABBA..",
+			"...AA..CCDDEEDDCC..AA...",
+			"......CCDDEXXEEDCC......",
+			"..EE..CCDDEEEDDCC..EE..",
+			".EEDD..CCDDDDDDCC..DDEE.",
+			"..EE....CCCCCCCC....EE..",
+			"...AA..............AA...",
+			"..ABBA............ABBA.."
+		], candy_palettes[1]),
+		_make_level("Wrapped Eggs", "Crack the festival stash", [
+			"....AA....BB....CC....",
+			"...ABBA..BCCB..CDDC...",
+			"..ABDDBA.BCDCB.CDEEDC..",
+			"...ABBA..BCCB..CDDC...",
+			"....AA....BB....CC....",
+			"........................",
+			"....DD....EE....SS....",
+			"...DEED..ESSE..SDDS...",
+			"..DEXXED.ESSSE.SDXXDS..",
+			"...DEED..ESSE..SDDS...",
+			"....DD....EE....SS....",
+			"...AA....BB....CC......"
+		], candy_palettes[2]),
+		_make_level("Grave Bite", "The sugar turns feral", [
+			"XX....SS....SS....XX",
+			".XX..SSSS..SSSS..XX.",
+			"..XX.SSXX..XXSS.XX..",
+			"...XXSS......SSXX...",
+			"....DDDDDDDDDDDD....",
+			"...DDEEEEEEEEEEDD...",
+			"..DDEEXXEEEEXXEEDD..",
+			".DDEESSSSEESSSSEEDD.",
+			".DDEESSSSEESSSSEEDD.",
+			"..DDEE..DDDD..EEDD..",
+			"...DD....DD....DD...",
+			"....D....DD....D...."
+		], sinister_palettes[1], true),
+		_make_level("Pinwheel Pop", "Five flavors collide", [
+			"........CC........",
+			".......CCCC.......",
+			"...AA...CC...BB...",
+			"...AAA..CC..BBB...",
+			"AAAAAAXXCCXXBBBBBB",
+			"...AAA..SS..BBB...",
+			"...AA...SS...BB...",
+			".......SSSS.......",
+			"........SS........",
+			"...DD...EE...AA...",
+			"..DDDD.EEEE.AAAA..",
+			"...DD...EE...AA..."
+		], candy_palettes[3]),
+		_make_level("Bunny Face", "Smile and smash", [
+			".......AA......AA.......",
+			"......ABBA....ABBA......",
+			"......ABBA....ABBA......",
+			".......AA......AA.......",
+			".....CCCDDCCCCDDCCC.....",
+			"....CCDDEECCCCEEDDCC....",
+			"...CCDDEEXX..XXEEDDCC...",
+			"...CCDDEEEEEEEEEEDDCC...",
+			"...CCDDE........EDDCC...",
+			"....CCDDE......EDDCC....",
+			".....CCDDDDDDDDDDCC.....",
+			".......CC......CC......."
+		], candy_palettes[4]),
+		_make_level("Egg Parade", "March of the shells", [
+			".AA....BB....CC....DD.",
+			"ABBA..BCCB..CDDC..DEED",
+			"ADDA..BDDB..CEEC..DDDD",
+			"ABBA..BCCB..CDDC..DEED",
+			".AA....BB....CC....DD.",
+			"........................",
+			".DD....EE....SS....AA.",
+			"DDDD..ESSE..ASSA..BDDB",
+			"DEED..ESSE..AEEA..BCCB",
+			"DDDD..ESSE..ASSA..BDDB",
+			".DD....EE....SS....AA.",
+			"....CC....DD....EE...."
+		], candy_palettes[0]),
+		_make_level("Candy Cruiser", "Road trip through syrup", [
+			"........................",
+			"........................",
+			"....AABB........CCDD....",
+			"...AABBDD......CCDDEE...",
+			"..AABBDDSSXXXXSSDDEECC..",
+			".AABBDDEEEEEEEEEEDDCCB.",
+			".AABBDDEEDDDDDEEDDCCB.",
+			"..AA..DD......DD..CC...",
+			".ABBA..D......D..BCCB..",
+			"ABCCBA...........BDDCBA",
+			".ABBA............BCCB..",
+			"..AA..............CC..."
+		], candy_palettes[1]),
+		_make_level("I Wait", "The walls are listening", [
+			"....XX....SS....XX....",
+			"...XXXX..SSSS..XXXX...",
+			"........................",
+			".A.A.A...AAA..A...AAA.",
+			".A.A.A...A.A..A....A..",
+			".A.A.A...AAA..A....A..",
+			".A.A.A...A.A..A....A..",
+			"..A.A....A.A..A....A..",
+			"........................",
+			"..DD..DD..SSXX..DD..DD.",
+			".DDEE..DDEE..DDEE..DD..",
+			"..DD....DD....DD....DD."
+		], sinister_palettes[2], true),
+		_make_level("Chocolate Castle", "Walls of nougat", [
+			"........EEEE........",
+			".......ECCCCE.......",
+			"......ECCDDECCE......",
+			".....EECCDDEECCEE.....",
+			"....EESSDDSSDDSSEE....",
+			"...EEESSEESSDDEESSEE...",
+			"..EEE..............EEE..",
+			".EEDD..AABBXXBBAA..DDEE.",
+			".EEDD..AABBDDBBAA..DDEE.",
+			".EEDD..CCDDEEDDCC..DDEE.",
+			"..EE....CC....CC....EE..",
+			"...E....CC....CC....E..."
+		], candy_palettes[2]),
+		_make_level("Carrot Launcher", "Spring fireworks", [
+			"...........AA...........",
+			"..........ABBA..........",
+			".........ABCCBA.........",
+			"........ABCDDCBA........",
+			".......ABCDXXDCBA.......",
+			"......ABCDESSSDCBA......",
+			".....ABCDESSSSEDCBA.....",
+			"......BBCCDDDDCCBB......",
+			".......BBCCDDECBB.......",
+			"....AA....DDDD....AA....",
+			"...ABBA...DDDD...ABBA...",
+			"..ABCCBA..CCCC..ABCCBA.."
+		], candy_palettes[3]),
+		_make_level("Basket Weave", "Patchwork of sugar", [
+			"AABB..CCDDEE..AABB..CC",
+			"AABB..CCDDEE..AABB..CC",
+			"..DDEE..AABBCC..DDEE..",
+			"..DDEE..AABBCC..DDEE..",
+			"SS..AABB..XX..CCDDEE..",
+			"SS..AABB..XX..CCDDEE..",
+			"..CCDDEE..AABB..SS..AA",
+			"..CCDDEE..AABB..SS..AA",
+			"EESS..CCDDEE..AABB..CC",
+			"EESS..CCDDEE..AABB..CC",
+			"..AABB..SSXX..DDEE..AA",
+			"..AABB..SSXX..DDEE..AA"
+		], candy_palettes[4]),
+		_make_level("Be Kind", "Sugar is better shared", [
+			"....AA....BB....CC....",
+			"...ABBA..BCCB..CDDC...",
+			"........................",
+			"AAA.AAA..A.A.A.A.A.AAA",
+			"A.A.A....AA..A.AA.A.A",
+			"AAA.AAA..A...A.A.A.A.A",
+			"A.A.A....AA..A.A.A.A.A",
+			"AAA.AAA..A.A.A.A.A.AAA",
+			"........................",
+			"...DD....EE....SS.....",
+			"..DDEE..EESS..SSDD....",
+			"...DD....EE....SS....."
+		], candy_palettes[0]),
+		_make_level("Final Skull Storm", "The candy goes black", [
+			"....XX....SS....XX....",
+			"...XXXX..SSSS..XXXX...",
+			"..XXEEXXSSXXSSXXEEXX..",
+			".XXEEDDXXXXXXDDEEXX.",
+			".XDEESSSSDDSSSSEEDX.",
+			".DDEESSXXSSXXSSEEDD.",
+			".DDEESSSSSSSSSSEEDD.",
+			"..DDEEXXEEEEEXXEEDD..",
+			"...DDEEEEEEEEEEDD...",
+			"....DD..DDDD..DD....",
+			".....D...DD...D.....",
+			"......D..DD..D......"
+		], sinister_palettes[3], true)
+	]
+
+
+func _make_level(name: String, tagline: String, layout: Array, palette: Dictionary, sinister: bool = false) -> Dictionary:
+	return {
+		"name": name,
+		"tagline": tagline,
+		"layout": layout,
+		"background": palette["bg"],
+		"stripe": palette["stripe"],
+		"theme": "sinister" if sinister else "candy",
+		"ball_speed_multiplier": 1.2 if sinister else 1.0,
+		"brick_fall_speed": 8.0 if sinister else 4.0,
+		"bomb_multiplier": 2.0 if sinister else 1.0,
+		"allow_heart": not sinister
+	}
 
 
 func _notification(what: int) -> void:
@@ -257,10 +481,11 @@ func _bind_mouse_action(action: String, button_index: MouseButton) -> void:
 
 func _build_audio() -> void:
 	audio_streams = AudioSynth.create_sfx_library()
-	audio_streams["music"] = AudioSynth.create_music_stream()
+	audio_streams["music_candy"] = AudioSynth.create_music_stream("candy")
+	audio_streams["music_sinister"] = AudioSynth.create_music_stream("sinister")
 
 	music_player = AudioStreamPlayer.new()
-	music_player.stream = audio_streams["music"]
+	music_player.stream = audio_streams["music_candy"]
 	add_child(music_player)
 
 	for _index in range(10):
@@ -475,6 +700,28 @@ func _max_lives() -> int:
 	return 9 if settings["cheat"] else 5
 
 
+func _current_theme() -> String:
+	return String(current_level.get("theme", "candy"))
+
+
+func _ball_speed_multiplier() -> float:
+	return float(current_level.get("ball_speed_multiplier", 1.0))
+
+
+func _brick_fall_speed() -> float:
+	return float(current_level.get("brick_fall_speed", 0.0))
+
+
+func _powerup_weight_for(key: String) -> float:
+	var meta: Dictionary = POWERUP_META[key]
+	var weight = float(meta["weight"])
+	if key == "bomb":
+		weight *= float(current_level.get("bomb_multiplier", 1.0))
+	if key == "heart" and not bool(current_level.get("allow_heart", true)):
+		return 0.0
+	return weight
+
+
 func _refresh_menu_ui() -> void:
 	if menu_panel == null:
 		return
@@ -598,6 +845,13 @@ func _update_audio_mix() -> void:
 func _ensure_music_state() -> void:
 	if music_player == null:
 		return
+	var desired_stream = audio_streams["music_sinister"] if _current_theme() == "sinister" else audio_streams["music_candy"]
+	if music_player.stream != desired_stream:
+		var was_playing = music_player.playing
+		music_player.stop()
+		music_player.stream = desired_stream
+		if was_playing and settings["music"] and state != "paused":
+			music_player.play()
 	_update_audio_mix()
 	if not settings["music"]:
 		music_player.stop()
@@ -712,8 +966,9 @@ func _start_new_game() -> void:
 
 
 func _load_level(index: int) -> void:
-	level_index = clamp(index, 0, LEVELS.size() - 1)
-	var level = LEVELS[level_index]
+	level_index = clamp(index, 0, levels.size() - 1)
+	var level = levels[level_index]
+	current_level = level
 	current_level_name = "%s | %s" % [level["name"], level["tagline"]]
 	bricks.clear()
 	powerups.clear()
@@ -725,9 +980,19 @@ func _load_level(index: int) -> void:
 	options_open = false
 
 	var layout: Array = level["layout"]
-	var column_count = 18
-	var brick_size = Vector2(64.0, 28.0)
-	var gap = Vector2(6.0, 6.0)
+	var column_count = 1
+	for line_value in layout:
+		column_count = max(column_count, String(line_value).length())
+	var row_count = layout.size()
+	var gap = Vector2(4.0, 4.0)
+	var usable_width = PLAYFIELD.size.x - 96.0
+	var usable_height = min(380.0, PLAYFIELD.size.y * 0.58)
+	var brick_size = Vector2(
+		floor((usable_width - (column_count - 1) * gap.x) / column_count),
+		floor((usable_height - max(0, row_count - 1) * gap.y) / max(row_count, 1))
+	)
+	brick_size.x = clamp(brick_size.x, 38.0, 56.0)
+	brick_size.y = clamp(brick_size.y, 18.0, 28.0)
 	var grid_width = column_count * brick_size.x + (column_count - 1) * gap.x
 	var origin = Vector2(PLAYFIELD.get_center().x - grid_width * 0.5, PLAYFIELD.position.y + 54.0)
 
@@ -799,6 +1064,7 @@ func _process(delta: float) -> void:
 	if state != "paused":
 		_update_effects(delta)
 		_update_paddle(delta)
+		_update_bricks(world_delta)
 		_update_powerups(world_delta)
 		_update_lasers(world_delta)
 		_update_particles(world_delta)
@@ -809,7 +1075,7 @@ func _process(delta: float) -> void:
 	elif state == "serve":
 		_update_stuck_balls()
 	elif state == "level_clear" and state_timer > 1.5:
-		if level_index < LEVELS.size() - 1:
+		if level_index < levels.size() - 1:
 			lives = min(lives + 1, _max_lives())
 			_save_progress()
 			_play_sfx("level_clear")
@@ -860,6 +1126,43 @@ func _update_paddle(delta: float) -> void:
 	paddle["pos"].x = clamp(paddle["pos"].x, PLAYFIELD.position.x + paddle["width"] * 0.5, PLAYFIELD.end.x - paddle["width"] * 0.5)
 	paddle["vx"] = (paddle["pos"].x - last_paddle_x) / max(delta, 0.001)
 	last_paddle_x = paddle["pos"].x
+
+
+func _update_bricks(delta: float) -> void:
+	var fall_speed = _brick_fall_speed()
+	if fall_speed <= 0.0:
+		return
+	if state not in ["serve", "playing"]:
+		return
+
+	var breach_line = paddle["pos"].y - paddle["height"] * 1.8
+	var breached = false
+	for brick in bricks:
+		if not brick["alive"]:
+			continue
+		var rect: Rect2 = brick["rect"]
+		rect.position.y += fall_speed * delta
+		brick["rect"] = rect
+		if rect.end.y >= breach_line:
+			breached = true
+
+	if breached:
+		_handle_brick_breach()
+
+
+func _handle_brick_breach() -> void:
+	lives -= 1
+	if lives <= 0:
+		state = "game_over"
+		state_timer = 0.0
+		menu_context = "game_over"
+		_save_progress()
+		_play_sfx("game_over")
+		return
+	banner_text = "The wall descends"
+	banner_timer = 1.5
+	_play_sfx("explosion", 0.8)
+	_load_level(level_index)
 
 
 func _update_stuck_balls() -> void:
@@ -999,7 +1302,8 @@ func _damage_brick(brick: Dictionary, hit_point: Vector2, from_nova: bool) -> vo
 	if not brick["alive"]:
 		return
 
-	brick["hits_left"] -= 1
+	var damage = 2 if settings["cheat"] else 1
+	brick["hits_left"] -= damage
 	combo_clock = 2.0
 	combo_multiplier = min(combo_multiplier + 1, 8)
 	score += 25 * combo_multiplier
@@ -1070,11 +1374,11 @@ func _spawn_powerup(position: Vector2) -> void:
 	var roll = rng.randf() * _total_powerup_weight()
 	var selected = "wide"
 	for key in POWERUP_META.keys():
-		roll -= POWERUP_META[key]["weight"]
+		roll -= _powerup_weight_for(key)
 		if roll <= 0.0:
 			selected = key
 			break
-	if settings["cheat"] and selected == "bomb":
+	if settings["cheat"] and selected == "bomb" and bool(current_level.get("allow_heart", true)):
 		selected = "heart"
 
 	var meta: Dictionary = POWERUP_META[selected]
@@ -1095,7 +1399,7 @@ func _spawn_powerup(position: Vector2) -> void:
 func _total_powerup_weight() -> float:
 	var total = 0.0
 	for key in POWERUP_META.keys():
-		total += POWERUP_META[key]["weight"]
+		total += _powerup_weight_for(key)
 	return total
 
 
@@ -1222,10 +1526,10 @@ func _push_ball_trail(ball: Dictionary) -> void:
 func _normalize_ball_speed(ball: Dictionary) -> void:
 	var speed = ball["vel"].length()
 	if speed < 1.0:
-		ball["vel"] = Vector2(240.0, -520.0)
+		ball["vel"] = Vector2(240.0, -520.0 * _ball_speed_multiplier())
 		speed = ball["vel"].length()
-	var min_speed = 380.0 if active_effects.has("slow") else 460.0
-	var max_speed = 560.0 if active_effects.has("slow") else 840.0
+	var min_speed = (380.0 if active_effects.has("slow") else 460.0) * _ball_speed_multiplier()
+	var max_speed = (560.0 if active_effects.has("slow") else 840.0) * _ball_speed_multiplier()
 	speed = clamp(speed, min_speed, max_speed)
 	ball["vel"] = ball["vel"].normalized() * speed
 
@@ -1311,7 +1615,7 @@ func _update_overlay() -> void:
 
 
 func _draw() -> void:
-	var level: Dictionary = LEVELS[level_index]
+	var level: Dictionary = levels[level_index]
 	var bg: Array = level["background"]
 
 	draw_rect(Rect2(Vector2.ZERO, size), bg[0], true)
@@ -1476,7 +1780,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			banner_text = "Cheat skip"
 			banner_timer = 1.0
 			_play_sfx("level_clear")
-			if level_index < LEVELS.size() - 1:
+			if level_index < levels.size() - 1:
 				_load_level(level_index + 1)
 			else:
 				run_won = true
@@ -1526,12 +1830,13 @@ func _has_stuck_ball() -> bool:
 
 func _launch_stuck_balls() -> void:
 	state = "playing"
+	var base_speed = 560.0 * _ball_speed_multiplier()
 	for ball in balls:
 		if not ball["stuck"]:
 			continue
 		var spread = rng.randf_range(-0.38, 0.38)
 		ball["stuck"] = false
-		ball["vel"] = Vector2(spread * 260.0, -560.0)
+		ball["vel"] = Vector2(spread * 260.0 * _ball_speed_multiplier(), -base_speed)
 	_play_sfx("launch", rng.randf_range(0.98, 1.04))
 
 

@@ -21,8 +21,9 @@ static func create_sfx_library() -> Dictionary:
 	}
 
 
-static func create_music_stream() -> AudioStreamWAV:
-	var bpm = 142.0
+static func create_music_stream(theme: String = "candy") -> AudioStreamWAV:
+	var sinister = theme == "sinister"
+	var bpm = 118.0 if sinister else 142.0
 	var step_duration = 60.0 / bpm / 2.0
 	var total_steps = 64
 	var total_seconds = step_duration * total_steps
@@ -39,6 +40,16 @@ static func create_music_stream() -> AudioStreamWAV:
 		[64, 67, 71],
 		[65, 69, 72]
 	]
+	if sinister:
+		lead = [67, 70, 72, 70, 67, 63, 67, 70, 74, 70, 67, 63, 60, 63, 67, 70]
+		counter = [55, 58, 60, 58, 55, 53, 55, 58]
+		bass = [29, 29, 32, 32, 27, 27, 24, 24]
+		chords = [
+			[48, 51, 55],
+			[46, 50, 53],
+			[43, 46, 50],
+			[41, 44, 48]
+		]
 
 	for i in range(sample_count):
 		var t = float(i) / SAMPLE_RATE
@@ -56,17 +67,17 @@ static func create_music_stream() -> AudioStreamWAV:
 		var chord = chords[bar % chords.size()]
 		var arp_note = chord[step % chord.size()]
 
-		sample += voice_note(half_beat_time, step_duration * 0.9, midi_to_hz(lead_note), 0.24, "square", 0.01)
-		sample += voice_note(half_beat_time, step_duration * 0.78, midi_to_hz(counter_note), 0.1, "triangle", 0.025)
-		sample += voice_note(half_beat_time, step_duration * 0.7, midi_to_hz(arp_note + 12), 0.07, "square", 0.0)
-		sample += voice_note(beat_time, step_duration * 1.95, midi_to_hz(bass_note), 0.22, "saw", 0.0)
+		sample += voice_note(half_beat_time, step_duration * 0.9, midi_to_hz(lead_note), 0.18 if sinister else 0.24, "saw" if sinister else "square", 0.01)
+		sample += voice_note(half_beat_time, step_duration * 0.78, midi_to_hz(counter_note), 0.08 if sinister else 0.1, "triangle", 0.01 if sinister else 0.025)
+		sample += voice_note(half_beat_time, step_duration * 0.7, midi_to_hz(arp_note + (7 if sinister else 12)), 0.05 if sinister else 0.07, "square", 0.0)
+		sample += voice_note(beat_time, step_duration * 1.95, midi_to_hz(bass_note), 0.28 if sinister else 0.22, "saw", 0.0)
 		for note in chord:
-			sample += voice_note(bar_time, step_duration * 7.2, midi_to_hz(note), 0.028, "sine", 0.0)
+			sample += voice_note(bar_time, step_duration * 7.2, midi_to_hz(note), 0.035 if sinister else 0.028, "sine", 0.0)
 
 		if half_beat_time < 0.1:
-			sample += drum_kick(half_beat_time, 0.11, 0.42)
+			sample += drum_kick(half_beat_time, 0.13 if sinister else 0.11, 0.5 if sinister else 0.42)
 		if step % 4 == 2 and half_beat_time < 0.09:
-			sample += drum_noise(half_beat_time, 0.11, 0.18)
+			sample += drum_noise(half_beat_time, 0.14 if sinister else 0.11, 0.1 if sinister else 0.18)
 
 		data.encode_s16(i * 2, int(clamp(sample, -1.0, 1.0) * 32767.0))
 
