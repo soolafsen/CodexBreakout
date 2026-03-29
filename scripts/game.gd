@@ -131,13 +131,13 @@ func _build_level_library() -> Array:
 		{"bg": [Color("1a0430"), Color("6a117e"), Color("ffd34d")], "stripe": Color("42f5ff", 0.16)}
 	]
 	var sinister_palettes = [
-		{"bg": [Color("06070d"), Color("1b0f20"), Color("6a1a1a")], "stripe": Color("7d1717", 0.2)},
-		{"bg": [Color("05080f"), Color("12131f"), Color("203c55")], "stripe": Color("6e87a0", 0.18)},
-		{"bg": [Color("09050a"), Color("200c1b"), Color("4a1022")], "stripe": Color("8d2339", 0.18)},
-		{"bg": [Color("070707"), Color("181818"), Color("3a1111")], "stripe": Color("7a2626", 0.2)}
+		{"bg": [Color("040506"), Color("141516"), Color("3e2320")], "stripe": Color("5c4a48", 0.14)},
+		{"bg": [Color("040507"), Color("101318"), Color("28323a")], "stripe": Color("52606a", 0.13)},
+		{"bg": [Color("060506"), Color("181214"), Color("3a2429")], "stripe": Color("615055", 0.14)},
+		{"bg": [Color("050505"), Color("141414"), Color("2a2421")], "stripe": Color("5b4c45", 0.13)}
 	]
 
-	return [
+	var base_levels = [
 		_make_level("Candy Crown", "Open the vault", [
 			".......AABCCBBAA.......",
 			"......AABCDDDDCBAA......",
@@ -419,6 +419,8 @@ func _build_level_library() -> Array:
 			"......D..DD..D......"
 		], sinister_palettes[3], true)
 	]
+	base_levels.append_array(_build_generated_levels(base_levels.size(), 99, candy_palettes, sinister_palettes))
+	return base_levels
 
 
 func _make_level(name: String, tagline: String, layout: Array, palette: Dictionary, sinister: bool = false) -> Dictionary:
@@ -434,6 +436,383 @@ func _make_level(name: String, tagline: String, layout: Array, palette: Dictiona
 		"bomb_multiplier": 2.0 if sinister else 1.0,
 		"allow_heart": not sinister
 	}
+
+
+func _build_generated_levels(start_index: int, target_count: int, candy_palettes: Array, sinister_palettes: Array) -> Array:
+	var results: Array = []
+	var candy_titles = [
+		"Jelly Orbit", "Sugar Sprint", "Bonbon Bloom", "Fizzy Parade", "Marshmallow Loop",
+		"Lemon Pop", "Bubble Waltz", "Toffee Orbit", "Egg Hunt", "Caramel Drift",
+		"Confetti Ride", "Neon Basket", "Bunny Hop", "Candy Wheels", "Sprinkle Tower",
+		"Ribbon Crash", "Happy Capsule", "Joy Machine", "Lollipop Harbor", "Sweet Circuit"
+	]
+	var candy_taglines = [
+		"Keep the rainbow bouncing", "Spring sugar in motion", "Too bright to fail",
+		"Crash through the jelly sky", "A carnival made of frosting", "The aisle goes neon",
+		"Pocket-sized easter chaos", "Candy rain over chrome", "Soft colors, hard rebounds",
+		"Push deeper into the sweets", "Turn the sugar storm louder", "Every color wants to pop"
+	]
+	var sinister_titles = [
+		"Ash Choir", "Black Sugar", "Dead Arcade", "Ruin Waltz", "The Hollow Shelf",
+		"Worn Halo", "Night Conveyor", "Rust Bloom", "Cold Vault", "Ember Teeth"
+	]
+	var sinister_taglines = [
+		"The candy store is rotting", "Ash falls where glitter was", "The aisle remembers you",
+		"Only the bounce stays bright", "Everything sweet has gone stale", "The sugar fights back",
+		"An arcade after the sirens", "Under the glaze, only ruin"
+	]
+	var candy_motifs = [
+		"diamond", "wave", "rings", "bunny", "eggs", "basket", "carrot", "clown",
+		"car", "bicycle", "heart", "crown", "castle", "pinwheel", "flower", "capsule",
+		"ribbon", "rocket", "weave", "stairs"
+	]
+	var sinister_motifs = [
+		"skull", "vault", "serpent", "hourglass", "spiral", "eclipse", "tomb", "tower", "sigil", "maw"
+	]
+	var candy_words = ["BE KIND", "LOVE CANDY", "HOP HOP", "SWEET DAY", "SOFT GLOW", "JOY POP"]
+	var sinister_words = ["I WAIT", "I SEE", "NO EXIT", "WE WATCH", "ASH FALLS", "COLD SUGAR"]
+
+	while start_index + results.size() < target_count:
+		var level_number = start_index + results.size() + 1
+		var sinister = level_number % 5 == 0
+		var palette_pool = sinister_palettes if sinister else candy_palettes
+		var title_pool = sinister_titles if sinister else candy_titles
+		var tagline_pool = sinister_taglines if sinister else candy_taglines
+		var motif_pool = sinister_motifs if sinister else candy_motifs
+		var word_pool = sinister_words if sinister else candy_words
+		var palette = palette_pool[level_number % palette_pool.size()]
+		var use_text = level_number % 7 == 0 or level_number % 11 == 0
+		var layout = _generate_phrase_layout(word_pool[level_number % word_pool.size()], sinister, level_number) if use_text else _generate_pattern_layout(motif_pool[level_number % motif_pool.size()], sinister, level_number)
+		var name = "%s %02d" % [title_pool[level_number % title_pool.size()], level_number]
+		var tagline = tagline_pool[(level_number * 3) % tagline_pool.size()]
+		results.append(_make_level(name, tagline, layout, palette, sinister))
+
+	return results
+
+
+func _generate_pattern_layout(motif: String, sinister: bool, variant: int) -> Array:
+	var width = 30
+	var height = 14
+	var grid = _make_grid(width, height)
+
+	match motif:
+		"diamond":
+			for y in range(height):
+				for x in range(width):
+					var dx = abs(x - width * 0.5 + 0.5)
+					var dy = abs(y - 5.8)
+					if dx + dy * 1.8 < 9.8 or (dy > 6.5 and dx < 2.6):
+						_set_theme_brick(grid, x, y, sinister, variant)
+		"wave":
+			for x in range(width):
+				var y1 = 3 + int(round(sin((x + variant) * 0.42) * 2.0))
+				var y2 = 8 + int(round(sin((x + variant * 2) * 0.37 + 1.4) * 2.0))
+				for offset in range(-1, 2):
+					_set_theme_brick(grid, x, y1 + offset, sinister, variant + x)
+					_set_theme_brick(grid, x, y2 + offset, sinister, variant + x + 9)
+		"rings":
+			_draw_disc(grid, 8.5, 5.0, 5.5, 3.2, sinister, variant, true, 0.32)
+			_draw_disc(grid, 21.5, 5.0, 5.5, 3.2, sinister, variant + 5, true, 0.32)
+			_draw_disc(grid, 15.0, 9.2, 5.8, 3.3, sinister, variant + 11, true, 0.32)
+		"bunny":
+			_draw_disc(grid, 10.5, 3.0, 2.8, 4.3, sinister, variant, false)
+			_draw_disc(grid, 19.5, 3.0, 2.8, 4.3, sinister, variant + 2, false)
+			_draw_disc(grid, 15.0, 7.3, 7.8, 4.5, sinister, variant + 6, false)
+			_draw_disc(grid, 12.4, 6.8, 0.9, 0.9, true, variant + 1, false)
+			_draw_disc(grid, 17.6, 6.8, 0.9, 0.9, true, variant + 2, false)
+			_draw_line(grid, 12, 10, 18, 10, sinister, variant + 8, 1)
+		"eggs":
+			for center_x in [6.0, 15.0, 24.0]:
+				_draw_disc(grid, center_x, 6.5, 3.4, 4.7, sinister, variant + int(center_x), false)
+				_draw_disc(grid, center_x, 6.5, 2.0, 2.9, not sinister, variant + int(center_x) + 3, true, 0.38)
+		"basket":
+			for center_x in [8.0, 15.0, 22.0]:
+				_draw_disc(grid, center_x, 4.8, 2.5, 3.3, sinister, variant + int(center_x), false)
+			_draw_rect_fill(grid, 4, 8, 21, 3, sinister, variant)
+			for x in range(4, 25, 3):
+				_draw_line(grid, x, 8, x, 10, not sinister, variant + x, 1)
+			_draw_line(grid, 4, 8, 25, 8, not sinister, variant + 6, 1)
+		"carrot":
+			for y in range(3, 12):
+				var spread = int(round((12 - y) * 0.7))
+				for x in range(15 - spread, 15 + spread + 1):
+					_set_theme_brick(grid, x, y, sinister, variant + y + x)
+			for leaf in range(3):
+				_draw_line(grid, 15, 1, 11 + leaf * 4, 4, false, variant + leaf, 1)
+		"clown":
+			_draw_disc(grid, 15.0, 7.0, 6.8, 4.2, sinister, variant, false)
+			_draw_disc(grid, 7.2, 6.0, 2.7, 2.7, false, variant + 2, false)
+			_draw_disc(grid, 22.8, 6.0, 2.7, 2.7, false, variant + 5, false)
+			_draw_disc(grid, 15.0, 7.6, 1.1, 1.1, true, variant + 7, false)
+			_draw_line(grid, 11, 10, 19, 10, sinister, variant + 9, 1)
+			_draw_line(grid, 10, 3, 15, 0, false, variant + 1, 1)
+			_draw_line(grid, 20, 3, 15, 0, false, variant + 4, 1)
+		"car":
+			_draw_rect_fill(grid, 6, 7, 17, 3, sinister, variant)
+			_draw_rect_fill(grid, 10, 5, 9, 2, sinister, variant + 3)
+			_draw_disc(grid, 10.0, 11.0, 3.0, 2.0, true, variant + 5, true, 0.34)
+			_draw_disc(grid, 20.0, 11.0, 3.0, 2.0, true, variant + 8, true, 0.34)
+		"bicycle":
+			_draw_disc(grid, 8.5, 10.0, 3.6, 2.5, sinister, variant, true, 0.26)
+			_draw_disc(grid, 21.5, 10.0, 3.6, 2.5, sinister, variant + 3, true, 0.26)
+			_draw_line(grid, 8, 10, 13, 6, sinister, variant + 6, 1)
+			_draw_line(grid, 13, 6, 18, 10, sinister, variant + 8, 1)
+			_draw_line(grid, 13, 6, 16, 10, sinister, variant + 9, 1)
+			_draw_line(grid, 16, 10, 21, 10, sinister, variant + 10, 1)
+			_draw_line(grid, 14, 5, 16, 5, sinister, variant + 11, 1)
+		"heart":
+			for y in range(height):
+				for x in range(width):
+					var nx = (x - 14.5) / 7.4
+					var ny = (y - 5.3) / 4.6
+					var curve = pow(nx * nx + ny * ny - 1.0, 3.0) - nx * nx * pow(ny, 3.0)
+					if curve <= 0.18:
+						_set_theme_brick(grid, x, y, sinister, variant + x)
+		"crown":
+			_draw_rect_fill(grid, 6, 8, 18, 2, sinister, variant)
+			for tip in [7, 12, 17, 22]:
+				_draw_line(grid, tip, 8, tip + 2, 2 + int(tip % 2), sinister, variant + tip, 1)
+				_draw_line(grid, tip + 4, 8, tip + 2, 2 + int(tip % 2), sinister, variant + tip + 2, 1)
+			for jewel in [9, 15, 21]:
+				_draw_disc(grid, jewel, 7.0, 1.0, 1.0, false, variant + jewel, false)
+		"castle":
+			_draw_rect_fill(grid, 8, 6, 14, 5, sinister, variant)
+			_draw_rect_fill(grid, 5, 4, 4, 7, sinister, variant + 3)
+			_draw_rect_fill(grid, 21, 4, 4, 7, sinister, variant + 5)
+			for merlon in [5, 7, 9, 21, 23, 25, 11, 15, 19]:
+				_draw_rect_fill(grid, merlon, 3 if merlon < 11 or merlon > 19 else 5, 1, 1, sinister, variant + merlon)
+			_draw_rect_fill(grid, 13, 8, 4, 3, true, variant + 7)
+		"pinwheel":
+			for spoke in range(4):
+				var angle = spoke * PI * 0.5 + float(variant % 5) * 0.08
+				var direction = Vector2.RIGHT.rotated(angle)
+				_draw_line(grid, 15, 7, int(round(15 + direction.x * 8.0)), int(round(7 + direction.y * 5.0)), sinister, variant + spoke, 2)
+				_draw_line(grid, 15, 7, int(round(15 - direction.y * 6.0)), int(round(7 + direction.x * 4.0)), false, variant + spoke + 2, 2)
+		"flower":
+			for petal in [Vector2(10, 5), Vector2(20, 5), Vector2(10, 9), Vector2(20, 9), Vector2(15, 3), Vector2(15, 11)]:
+				_draw_disc(grid, petal.x, petal.y, 3.0, 2.2, sinister, variant + int(petal.x), false)
+			_draw_disc(grid, 15.0, 7.0, 2.4, 2.4, false, variant + 8, false)
+		"capsule":
+			_draw_disc(grid, 10.0, 7.0, 4.0, 3.0, sinister, variant, false)
+			_draw_disc(grid, 20.0, 7.0, 4.0, 3.0, not sinister, variant + 3, false)
+			_draw_rect_fill(grid, 10, 4, 10, 6, sinister, variant + 6)
+		"ribbon":
+			for x in range(width):
+				var y = 6 + int(round(sin((x + variant) * 0.45) * 2.0))
+				_draw_line(grid, x, y, x, y + 3, sinister, variant + x, 1)
+		"rocket":
+			_draw_line(grid, 15, 1, 15, 9, sinister, variant, 2)
+			_draw_line(grid, 15, 1, 11, 4, sinister, variant + 2, 1)
+			_draw_line(grid, 15, 1, 19, 4, sinister, variant + 4, 1)
+			_draw_line(grid, 15, 8, 10, 12, false, variant + 6, 1)
+			_draw_line(grid, 15, 8, 20, 12, false, variant + 8, 1)
+			_draw_disc(grid, 15.0, 5.5, 1.1, 1.1, true, variant + 11, false)
+		"weave":
+			for y in range(height):
+				for x in range(width):
+					if (x / 3 + y / 2 + variant) % 2 == 0 and x % 5 < 3 and y % 4 < 2:
+						_set_theme_brick(grid, x, y, sinister, variant + x + y)
+		"stairs":
+			for step in range(6):
+				_draw_rect_fill(grid, 4 + step * 3, 10 - step, 8, 2, sinister, variant + step)
+		"skull":
+			_draw_disc(grid, 15.0, 6.0, 8.4, 4.7, sinister, variant, false)
+			_draw_rect_fill(grid, 10, 8, 10, 4, sinister, variant + 2)
+			_draw_disc(grid, 11.5, 6.0, 1.8, 1.5, true, variant + 4, false)
+			_draw_disc(grid, 18.5, 6.0, 1.8, 1.5, true, variant + 6, false)
+			_draw_line(grid, 14, 8, 16, 8, true, variant + 8, 1)
+		"vault":
+			_draw_rect_outline(grid, 7, 2, 16, 10, sinister, variant, 1)
+			_draw_rect_outline(grid, 10, 4, 10, 6, sinister, variant + 2, 1)
+			_draw_disc(grid, 15.0, 7.0, 2.2, 2.2, true, variant + 6, true, 0.36)
+			_draw_line(grid, 15, 5, 15, 9, sinister, variant + 9, 1)
+			_draw_line(grid, 13, 7, 17, 7, sinister, variant + 10, 1)
+		"serpent":
+			for x in range(width):
+				var y = 6 + int(round(sin((x + variant) * 0.35) * 3.0))
+				for thickness in range(-1, 2):
+					_set_theme_brick(grid, x, y + thickness, sinister, variant + x)
+				if x % 6 == 0:
+					_set_theme_brick(grid, x, y - 2, true, variant + x + 3)
+		"hourglass":
+			_draw_line(grid, 7, 2, 22, 11, sinister, variant, 1)
+			_draw_line(grid, 22, 2, 7, 11, sinister, variant + 3, 1)
+			_draw_line(grid, 7, 2, 22, 2, sinister, variant + 6, 1)
+			_draw_line(grid, 7, 11, 22, 11, sinister, variant + 8, 1)
+		"spiral":
+			_draw_rect_outline(grid, 5, 2, 20, 10, sinister, variant, 1)
+			_draw_rect_outline(grid, 8, 4, 14, 6, sinister, variant + 2, 1)
+			_draw_rect_outline(grid, 11, 6, 8, 2, sinister, variant + 4, 1)
+			_draw_line(grid, 19, 8, 19, 10, sinister, variant + 6, 1)
+		"eclipse":
+			_draw_disc(grid, 13.0, 6.5, 6.0, 4.0, sinister, variant, false)
+			_draw_disc(grid, 17.0, 6.5, 6.0, 4.0, true, variant + 5, false)
+			_draw_disc(grid, 13.0, 6.5, 8.0, 5.2, sinister, variant + 8, true, 0.24)
+		"tomb":
+			_draw_rect_fill(grid, 10, 4, 10, 7, sinister, variant)
+			_draw_disc(grid, 15.0, 4.0, 5.0, 2.2, sinister, variant + 2, false)
+			_draw_line(grid, 15, 6, 15, 9, true, variant + 4, 1)
+			_draw_line(grid, 13, 8, 17, 8, true, variant + 5, 1)
+		"tower":
+			_draw_rect_fill(grid, 12, 2, 6, 10, sinister, variant)
+			_draw_rect_fill(grid, 10, 11, 10, 2, sinister, variant + 2)
+			for spike in [12, 15, 18]:
+				_draw_line(grid, spike, 2, spike + 1, 0, sinister, variant + spike, 1)
+		"sigil":
+			_draw_disc(grid, 15.0, 7.0, 7.0, 4.6, sinister, variant, true, 0.22)
+			_draw_line(grid, 15, 2, 15, 12, sinister, variant + 1, 1)
+			_draw_line(grid, 8, 7, 22, 7, sinister, variant + 2, 1)
+			_draw_line(grid, 10, 4, 20, 10, true, variant + 3, 1)
+			_draw_line(grid, 20, 4, 10, 10, true, variant + 4, 1)
+		"maw":
+			_draw_disc(grid, 15.0, 7.0, 8.0, 4.0, sinister, variant, false)
+			for tooth in range(8):
+				_draw_line(grid, 8 + tooth * 2, 8, 9 + tooth * 2, 11, true, variant + tooth, 1)
+				_draw_line(grid, 9 + tooth * 2, 3, 8 + tooth * 2, 6, true, variant + tooth + 1, 1)
+		_:
+			for x in range(width):
+				var y = 6 + int(round(sin((x + variant) * 0.5) * 2.0))
+				_set_theme_brick(grid, x, y, sinister, variant + x)
+
+	return _grid_to_layout(grid)
+
+
+func _generate_phrase_layout(phrase: String, sinister: bool, variant: int) -> Array:
+	var font = _tiny_font()
+	var width = 30
+	var height = 14
+	var grid = _make_grid(width, height)
+	var letters: Array = []
+	var upper_phrase = phrase.to_upper()
+	for index in range(upper_phrase.length()):
+		letters.append(upper_phrase[index])
+	var text_width = max(0, letters.size() * 4 - 1)
+	var cursor = max(1, int(floor((width - text_width) * 0.5)))
+
+	for letter in letters:
+		if letter == " ":
+			cursor += 2
+			continue
+		var glyph: Array = font.get(letter, font["A"])
+		for gy in range(glyph.size()):
+			var row: String = glyph[gy]
+			for gx in range(row.length()):
+				if row[gx] == "#":
+					_set_theme_brick(grid, cursor + gx, 4 + gy, sinister, variant + gx + gy)
+		cursor += 4
+
+	for x in range(3, width - 3):
+		if x % 5 != 0:
+			_set_theme_brick(grid, x, 1, sinister, variant + x)
+			_set_theme_brick(grid, x, 11, sinister, variant + x + 7)
+	return _grid_to_layout(grid)
+
+
+func _tiny_font() -> Dictionary:
+	return {
+		"A": ["###", "#.#", "###", "#.#", "#.#"],
+		"B": ["##.", "#.#", "##.", "#.#", "##."],
+		"C": ["###", "#..", "#..", "#..", "###"],
+		"D": ["##.", "#.#", "#.#", "#.#", "##."],
+		"E": ["###", "#..", "##.", "#..", "###"],
+		"F": ["###", "#..", "##.", "#..", "#.."],
+		"G": ["###", "#..", "#.#", "#.#", "###"],
+		"H": ["#.#", "#.#", "###", "#.#", "#.#"],
+		"I": ["###", ".#.", ".#.", ".#.", "###"],
+		"K": ["#.#", "#.#", "##.", "#.#", "#.#"],
+		"L": ["#..", "#..", "#..", "#..", "###"],
+		"N": ["#.#", "###", "###", "###", "#.#"],
+		"O": ["###", "#.#", "#.#", "#.#", "###"],
+		"P": ["###", "#.#", "###", "#..", "#.."],
+		"R": ["##.", "#.#", "##.", "#.#", "#.#"],
+		"S": ["###", "#..", "###", "..#", "###"],
+		"T": ["###", ".#.", ".#.", ".#.", ".#."],
+		"U": ["#.#", "#.#", "#.#", "#.#", "###"],
+		"V": ["#.#", "#.#", "#.#", "#.#", ".#."],
+		"W": ["#.#", "#.#", "###", "###", "#.#"],
+		"X": ["#.#", "#.#", ".#.", "#.#", "#.#"],
+		"Y": ["#.#", "#.#", ".#.", ".#.", ".#."],
+		" ": ["...", "...", "...", "...", "..."]
+	}
+
+
+func _make_grid(width: int, height: int) -> Array:
+	var grid: Array = []
+	for _row in range(height):
+		var line: Array = []
+		for _column in range(width):
+			line.append(".")
+		grid.append(line)
+	return grid
+
+
+func _grid_to_layout(grid: Array) -> Array:
+	var layout: Array = []
+	for row in grid:
+		layout.append("".join(row))
+	return layout
+
+
+func _set_theme_brick(grid: Array, x: int, y: int, sinister: bool, variant: int) -> void:
+	if y < 0 or y >= grid.size() or x < 0 or x >= grid[y].size():
+		return
+	grid[y][x] = _theme_brick_key(x, y, sinister, variant)
+
+
+func _theme_brick_key(x: int, y: int, sinister: bool, variant: int) -> String:
+	var candy_cycle = ["A", "B", "C", "D", "E", "S"]
+	var sinister_cycle = ["S", "E", "D", "C"]
+	var cycle = sinister_cycle if sinister else candy_cycle
+	var index = abs(x * 5 + y * 7 + variant * 3) % cycle.size()
+	var key = cycle[index]
+	var explosive_gate = 15 if sinister else 23
+	if (x * 11 + y * 13 + variant * 5) % explosive_gate == 0:
+		key = "X"
+	elif not sinister and (x + y + variant) % 9 == 0:
+		key = "S"
+	return key
+
+
+func _draw_disc(grid: Array, center_x: float, center_y: float, radius_x: float, radius_y: float, sinister: bool, variant: int, hollow: bool = false, thickness: float = 0.24) -> void:
+	for y in range(grid.size()):
+		for x in range(grid[y].size()):
+			var dx = (float(x) - center_x) / max(radius_x, 0.1)
+			var dy = (float(y) - center_y) / max(radius_y, 0.1)
+			var distance = dx * dx + dy * dy
+			if hollow:
+				if abs(distance - 1.0) <= thickness:
+					_set_theme_brick(grid, x, y, sinister, variant + x + y)
+			elif distance <= 1.0:
+				_set_theme_brick(grid, x, y, sinister, variant + x + y)
+
+
+func _draw_rect_fill(grid: Array, x: int, y: int, width: int, height: int, sinister: bool, variant: int) -> void:
+	for row in range(y, y + height):
+		for column in range(x, x + width):
+			_set_theme_brick(grid, column, row, sinister, variant + row + column)
+
+
+func _draw_rect_outline(grid: Array, x: int, y: int, width: int, height: int, sinister: bool, variant: int, thickness: int = 1) -> void:
+	for row in range(y, y + height):
+		for column in range(x, x + width):
+			var border = row < y + thickness or row >= y + height - thickness or column < x + thickness or column >= x + width - thickness
+			if border:
+				_set_theme_brick(grid, column, row, sinister, variant + row + column)
+
+
+func _draw_line(grid: Array, x0: int, y0: int, x1: int, y1: int, sinister: bool, variant: int, thickness: int = 1) -> void:
+	var steps = int(max(abs(x1 - x0), abs(y1 - y0)))
+	if steps <= 0:
+		_set_theme_brick(grid, x0, y0, sinister, variant)
+		return
+	for step in range(steps + 1):
+		var t = float(step) / float(steps)
+		var x = int(round(lerp(float(x0), float(x1), t)))
+		var y = int(round(lerp(float(y0), float(y1), t)))
+		for offset_y in range(-thickness + 1, thickness):
+			for offset_x in range(-thickness + 1, thickness):
+				if abs(offset_x) + abs(offset_y) < thickness + 1:
+					_set_theme_brick(grid, x + offset_x, y + offset_y, sinister, variant + step + offset_x + offset_y)
 
 
 func _notification(what: int) -> void:
@@ -984,15 +1363,15 @@ func _load_level(index: int) -> void:
 	for line_value in layout:
 		column_count = max(column_count, String(line_value).length())
 	var row_count = layout.size()
-	var gap = Vector2(4.0, 4.0)
-	var usable_width = PLAYFIELD.size.x - 96.0
-	var usable_height = min(380.0, PLAYFIELD.size.y * 0.58)
+	var gap = Vector2(3.0, 3.0)
+	var usable_width = PLAYFIELD.size.x - 68.0
+	var usable_height = min(420.0, PLAYFIELD.size.y * 0.62)
 	var brick_size = Vector2(
 		floor((usable_width - (column_count - 1) * gap.x) / column_count),
 		floor((usable_height - max(0, row_count - 1) * gap.y) / max(row_count, 1))
 	)
-	brick_size.x = clamp(brick_size.x, 38.0, 56.0)
-	brick_size.y = clamp(brick_size.y, 18.0, 28.0)
+	brick_size.x = clamp(brick_size.x, 32.0, 54.0)
+	brick_size.y = clamp(brick_size.y, 16.0, 26.0)
 	var grid_width = column_count * brick_size.x + (column_count - 1) * gap.x
 	var origin = Vector2(PLAYFIELD.get_center().x - grid_width * 0.5, PLAYFIELD.position.y + 54.0)
 
@@ -1033,9 +1412,9 @@ func _load_level(index: int) -> void:
 	balls.append(_make_ball(Vector2(paddle["pos"].x, paddle["pos"].y - 26.0), Vector2.ZERO, true))
 	state = "serve"
 	state_timer = 0.0
-	banner_text = level["name"]
+	banner_text = ("Night %02d  %s" % [level_index + 1, level["name"]]) if _current_theme() == "sinister" else level["name"]
 	banner_timer = 2.0
-	_flash(Color("ffffff", 0.65), 0.35)
+	_flash(Color("c7ced8", 0.48) if _current_theme() == "sinister" else Color("ffffff", 0.65), 0.35)
 	_shake(8.0)
 	_ensure_music_state()
 	_refresh_ui()
@@ -1573,7 +1952,7 @@ func _shake(amount: float) -> void:
 
 func _refresh_ui() -> void:
 	score_label.text = "Score  %09d    Hi  %09d" % [score, high_score]
-	level_label.text = current_level_name
+	level_label.text = "Level %02d/%02d    %s" % [level_index + 1, levels.size(), current_level_name]
 	lives_label.text = "Balls  %d" % lives
 
 	if combo_multiplier > 1:
@@ -1614,16 +1993,48 @@ func _update_overlay() -> void:
 		overlay_subtitle = ""
 
 
+func _desaturate(color: Color, amount: float) -> Color:
+	var luminance = color.r * 0.299 + color.g * 0.587 + color.b * 0.114
+	return Color(
+		lerpf(color.r, luminance, amount),
+		lerpf(color.g, luminance, amount),
+		lerpf(color.b, luminance, amount),
+		color.a
+	)
+
+
+func _theme_color(color: Color, role: String = "body") -> Color:
+	if _current_theme() != "sinister":
+		return color
+	var rust = Color("7a665d", color.a)
+	var toned = _desaturate(color, 0.82).lerp(rust, 0.18)
+	match role:
+		"glow":
+			toned = toned.darkened(0.58)
+			toned.a *= 0.48
+		"highlight":
+			toned = toned.lightened(0.06)
+		"field":
+			toned = toned.darkened(0.22)
+		"line":
+			toned = toned.darkened(0.1)
+		_:
+			toned = toned.darkened(0.28)
+	return toned
+
+
 func _draw() -> void:
 	var level: Dictionary = levels[level_index]
 	var bg: Array = level["background"]
+	var sinister = _current_theme() == "sinister"
 
 	draw_rect(Rect2(Vector2.ZERO, size), bg[0], true)
 	for index in range(14):
 		var t = float(index) / 13.0
 		var y = lerp(0.0, size.y, t)
 		var band_color = bg[0].lerp(bg[1], t).lerp(bg[2], 0.25)
-		band_color.a = 0.85
+		band_color = _theme_color(band_color, "field")
+		band_color.a = 0.92 if sinister else 0.85
 		draw_rect(Rect2(Vector2(0.0, y), Vector2(size.x, size.y / 13.0 + 2.0)), band_color, true)
 
 	for blob in range(7):
@@ -1633,26 +2044,31 @@ func _draw() -> void:
 			140.0 + fmod(blob * 110.0 + title_phase * 16.0, size.y + 220.0)
 		)
 		var radius = 90.0 + 40.0 * sin(wobble + blob)
-		var glow = bg[2].lerp(bg[1], float(blob % 3) / 2.0)
-		glow.a = 0.12
+		var glow = _theme_color(bg[2].lerp(bg[1], float(blob % 3) / 2.0), "glow")
+		glow.a = 0.05 if sinister else 0.12
 		draw_circle(center + camera_offset * 0.15, radius, glow)
 
 	for stripe in range(20):
 		var offset = fmod(title_phase * 120.0 + stripe * 88.0, size.x + 300.0) - 150.0
-		var stripe_color: Color = level["stripe"]
+		var stripe_color: Color = _theme_color(level["stripe"], "line")
 		draw_line(
 			Vector2(offset, PLAYFIELD.position.y - 110.0) + camera_offset * 0.1,
 			Vector2(offset + 220.0, PLAYFIELD.end.y + 140.0) + camera_offset * 0.1,
 			stripe_color,
-			3.0
+			2.0 if sinister else 3.0
 		)
 
 	var field = PLAYFIELD
 	var outer_field = Rect2(field.grow(16.0).position + camera_offset * 0.35, field.grow(16.0).size)
 	var inner_field = Rect2(field.position + camera_offset * 0.2, field.size)
-	draw_rect(outer_field, Color("2ce8ff", 0.08), true)
-	draw_rect(inner_field, Color("0b1027", 0.86), true)
-	draw_rect(inner_field, Color("7fdfff", 0.42), false, 3.0)
+	draw_rect(outer_field, _theme_color(Color("2ce8ff", 0.08), "field"), true)
+	draw_rect(inner_field, _theme_color(Color("0b1027", 0.86), "field"), true)
+	draw_rect(inner_field, _theme_color(Color("7fdfff", 0.42), "line"), false, 3.0)
+
+	if sinister:
+		draw_rect(Rect2(Vector2.ZERO, size), Color("090909", 0.16), true)
+		draw_circle(Vector2(120.0, size.y - 110.0), 210.0, Color("201716", 0.12))
+		draw_circle(Vector2(size.x - 120.0, 150.0), 190.0, Color("1a1918", 0.1))
 
 	_draw_bricks()
 	_draw_powerups()
@@ -1669,23 +2085,30 @@ func _draw() -> void:
 
 
 func _draw_bricks() -> void:
+	var sinister = _current_theme() == "sinister"
 	for brick in bricks:
 		if not brick["alive"]:
 			continue
 		var source_rect: Rect2 = brick["rect"]
 		var rect = Rect2(source_rect.position + camera_offset * 0.35, source_rect.size)
-		draw_rect(rect.grow(6.0), Color(brick["glow"], 0.11), true)
-		draw_rect(rect, brick["color"], true)
-		draw_rect(Rect2(rect.position + Vector2(0, 2), Vector2(rect.size.x, rect.size.y * 0.32)), brick["highlight"], true)
-		draw_rect(Rect2(rect.position + Vector2(4, 4), rect.size - Vector2(8, 8)), Color(brick["color"]).darkened(0.18), false, 2.0)
+		var glow_color = _theme_color(Color(brick["glow"]), "glow")
+		var body_color = _theme_color(Color(brick["color"]), "body")
+		var highlight_color = _theme_color(Color(brick["highlight"]), "highlight")
+		draw_rect(rect.grow(6.0), glow_color, true)
+		draw_rect(rect, body_color, true)
+		draw_rect(Rect2(rect.position + Vector2(0, 2), Vector2(rect.size.x, rect.size.y * 0.28)), highlight_color, true)
+		draw_rect(Rect2(rect.position + Vector2(4, 4), rect.size - Vector2(8, 8)), body_color.darkened(0.18), false, 2.0)
+		if sinister:
+			draw_line(rect.position + Vector2(5, rect.size.y * 0.38), rect.end - Vector2(5, rect.size.y * 0.38), Color("f4eee5", 0.08), 1.0)
+			draw_line(rect.position + Vector2(rect.size.x * 0.25, 4), rect.position + Vector2(rect.size.x * 0.72, rect.size.y - 5), Color("141414", 0.22), 1.0)
 		if brick["hits_left"] < brick["max_hits"]:
-			var crack_color = Color.WHITE
-			crack_color.a = 0.65
+			var crack_color = Color("e7dfd7", 0.5 if sinister else 0.65)
 			draw_line(rect.position + Vector2(10, 10), rect.end - Vector2(12, 14), crack_color, 2.0)
 			draw_line(rect.position + Vector2(rect.size.x * 0.55, 8), rect.position + Vector2(rect.size.x * 0.35, rect.size.y - 8), crack_color, 2.0)
 		if brick.get("explosive", false):
-			draw_line(rect.position + Vector2(12, rect.size.y * 0.5), rect.end - Vector2(12, rect.size.y * 0.5), Color.WHITE, 2.0)
-			draw_line(rect.position + Vector2(rect.size.x * 0.5, 8), rect.position + Vector2(rect.size.x * 0.5, rect.size.y - 8), Color.WHITE, 2.0)
+			var explosive_color = Color("f4e6d6", 0.75 if sinister else 1.0)
+			draw_line(rect.position + Vector2(12, rect.size.y * 0.5), rect.end - Vector2(12, rect.size.y * 0.5), explosive_color, 2.0)
+			draw_line(rect.position + Vector2(rect.size.x * 0.5, 8), rect.position + Vector2(rect.size.x * 0.5, rect.size.y - 8), explosive_color, 2.0)
 
 
 func _draw_paddle() -> void:
