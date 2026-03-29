@@ -2391,17 +2391,40 @@ func _draw_paddle() -> void:
 		Vector2(paddle["pos"].x - paddle["width"] * 0.5, paddle["pos"].y - paddle["height"] * 0.5) + camera_offset,
 		Vector2(paddle["width"], paddle["height"])
 	)
-	var shell_color = Color("8a5cff") if active_effects.has("bomb") else Color("ff8a23")
-	var glow_color = Color("ff5bcb", 0.18) if active_effects.has("bomb") else Color("ffe66c", 0.13)
-	draw_rect(rect.grow(12.0), glow_color, true)
+	var bomb_active = active_effects.has("bomb")
+	var laser_active = active_effects.has("laser")
+	var shell_color = Color("442a50") if bomb_active else Color("2a3142")
+	var body_color = Color("8a5cff") if bomb_active else Color("ff8a23")
+	var stripe_color = Color("b46cff") if bomb_active else Color("ff4eb4")
+	var endcap_color = Color("2ed6ff")
+	var glow_color = Color("ff5bcb", 0.06) if bomb_active else Color("ffe66c", 0.05)
+	var shadow_rect = Rect2(rect.position + Vector2(0, 2), rect.size)
+	var body_rect = rect.grow(-1.0)
+	var lane_rect = Rect2(body_rect.position + Vector2(14, 4), Vector2(body_rect.size.x - 28, body_rect.size.y - 8))
+	var endcap_width = clamp(body_rect.size.x * 0.085, 16.0, 22.0)
+	var left_cap = Rect2(body_rect.position, Vector2(endcap_width, body_rect.size.y))
+	var right_cap = Rect2(body_rect.end - Vector2(endcap_width, body_rect.size.y), Vector2(endcap_width, body_rect.size.y))
+	draw_rect(rect.grow(4.0), glow_color, true)
+	draw_rect(shadow_rect, Color("02050a", 0.12), true)
 	draw_rect(rect, shell_color, true)
-	draw_rect(Rect2(rect.position + Vector2(0, 2), Vector2(rect.size.x, rect.size.y * 0.38)), Color("fff7bc"), true)
-	draw_rect(Rect2(rect.position + Vector2(6, 5), rect.size - Vector2(12, 10)), Color("ff4eb4"), false, 2.0)
-	draw_rect(Rect2(rect.position, Vector2(22, rect.size.y)), Color("27d8ff"), true)
-	draw_rect(Rect2(rect.end - Vector2(22, rect.size.y), Vector2(22, rect.size.y)), Color("27d8ff"), true)
+	draw_rect(body_rect, body_color, true)
+	draw_rect(Rect2(body_rect.position + Vector2(0, 1), Vector2(body_rect.size.x, max(4.0, body_rect.size.y * 0.26))), Color("fff5c7"), true)
+	draw_rect(lane_rect, stripe_color, true)
+	draw_rect(Rect2(lane_rect.position + Vector2(0, 3), Vector2(lane_rect.size.x, 3)), Color("fff8bf", 0.9), true)
+	draw_rect(Rect2(lane_rect.position + Vector2(0, lane_rect.size.y - 5), Vector2(lane_rect.size.x, 3)), Color("ff7a1f", 0.85), true)
+	draw_rect(Rect2(body_rect.position + Vector2(4, 4), body_rect.size - Vector2(8, 8)), body_color.darkened(0.16), false, 1.0)
+	draw_rect(left_cap, endcap_color, true)
+	draw_rect(right_cap, endcap_color, true)
+	draw_rect(Rect2(left_cap.position + Vector2(0, 1), Vector2(left_cap.size.x, max(4.0, left_cap.size.y * 0.28))), Color("7cf4ff"), true)
+	draw_rect(Rect2(right_cap.position + Vector2(0, 1), Vector2(right_cap.size.x, max(4.0, right_cap.size.y * 0.28))), Color("7cf4ff"), true)
 	if active_effects.has("laser"):
-		draw_rect(Rect2(rect.position + Vector2(4, -14), Vector2(12, 14)), Color("fffb9a"), true)
-		draw_rect(Rect2(rect.end + Vector2(-16, -14), Vector2(12, 14)), Color("fffb9a"), true)
+		var turret_size = Vector2(10, 8)
+		var left_turret = Rect2(Vector2(left_cap.position.x + 3, body_rect.position.y - 5), turret_size)
+		var right_turret = Rect2(Vector2(right_cap.end.x - turret_size.x - 3, body_rect.position.y - 5), turret_size)
+		for turret in [left_turret, right_turret]:
+			draw_rect(turret, Color("4a5168"), true)
+			draw_rect(turret.grow(-1.0), Color("fff6a4"), true)
+			draw_rect(Rect2(turret.position + Vector2(0, 1), Vector2(turret.size.x, 2)), Color("fffce1"), true)
 
 
 func _draw_balls() -> void:
@@ -2419,20 +2442,28 @@ func _draw_balls() -> void:
 
 func _draw_powerups() -> void:
 	for pickup in powerups:
-		var body_rect = Rect2(
-			pickup["pos"] + camera_offset * 0.4 + Vector2(0, sin(pickup["wobble"]) * 4.0) - Vector2(22, 12),
-			Vector2(44, 24)
+		var shell_rect = Rect2(
+			pickup["pos"] + camera_offset * 0.4 + Vector2(0, sin(pickup["wobble"]) * 4.0) - Vector2(20, 11),
+			Vector2(40, 22)
 		)
-		draw_rect(body_rect.grow(10.0), Color(pickup["color"], 0.14), true)
+		var body_rect = shell_rect.grow(-2.0)
+		var inner_rect = body_rect.grow(-2.0)
+		var plate_color = Color("2a3049", 0.32) if pickup.get("bad", false) else Color("2e3650", 0.24)
+		var shadow_rect = Rect2(shell_rect.position + Vector2(0, 2), shell_rect.size)
+		var highlight_color = Color("fff4d8") if pickup.get("bad", false) else Color("ffffff")
+		draw_rect(shell_rect.grow(4.0), Color(pickup["color"], 0.08), true)
+		draw_rect(shadow_rect, Color("03050a", 0.12), true)
+		draw_rect(shell_rect, plate_color, true)
 		draw_rect(body_rect, pickup["color"], true)
-		draw_rect(Rect2(body_rect.position + Vector2(0, 2), Vector2(body_rect.size.x, 8)), Color.WHITE, true)
+		draw_rect(Rect2(body_rect.position + Vector2(0, 1), Vector2(body_rect.size.x, max(3.0, body_rect.size.y * 0.28))), highlight_color, true)
+		draw_rect(inner_rect, Color(pickup["color"]).darkened(0.18), false, 1.0)
 		draw_string(
 			ThemeDB.fallback_font,
-			body_rect.position + Vector2(13, 19),
+			body_rect.position + Vector2(body_rect.size.x * 0.5 - 5.0, body_rect.size.y * 0.72),
 			pickup["label"],
 			HORIZONTAL_ALIGNMENT_LEFT,
 			-1.0,
-			18,
+			17,
 			Color("3b0823") if pickup["bad"] else Color("201339")
 		)
 
