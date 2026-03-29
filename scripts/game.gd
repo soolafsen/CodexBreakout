@@ -65,9 +65,6 @@ var laser_cooldown = 0.0
 var last_paddle_x = PLAYFIELD.get_center().x
 var current_level_name = ""
 var run_won = false
-var wall_warning = false
-var wall_breach_line = -1.0
-var wall_warning_line = -1.0
 var settings = {
 	"speed": 5,
 	"cheat": false,
@@ -1623,9 +1620,6 @@ func _load_level(index: int) -> void:
 	active_effects.clear()
 	laser_cooldown = 0.0
 	options_open = false
-	wall_warning = false
-	wall_breach_line = -1.0
-	wall_warning_line = -1.0
 
 	var layout: Array = level["layout"]
 	var column_count = 1
@@ -1785,46 +1779,14 @@ func _update_bricks(delta: float) -> void:
 	if fall_speed <= 0.0:
 		return
 	if state != "playing":
-		wall_warning = false
 		return
 
-	var breach_line = paddle["pos"].y - paddle["height"] * 1.8
-	var warning_line = breach_line - 96.0
-	wall_breach_line = breach_line
-	wall_warning_line = warning_line
-	var breached = false
-	var warned = false
 	for brick in bricks:
 		if not brick["alive"]:
 			continue
 		var rect: Rect2 = brick["rect"]
 		rect.position.y += fall_speed * delta
 		brick["rect"] = rect
-		if rect.end.y >= breach_line:
-			breached = true
-		elif rect.end.y >= warning_line:
-			warned = true
-
-	wall_warning = warned
-
-	if breached:
-		_handle_brick_breach()
-
-
-func _handle_brick_breach() -> void:
-	lives -= 1
-	wall_warning = false
-	if lives <= 0:
-		state = "game_over"
-		state_timer = 0.0
-		menu_context = "game_over"
-		_save_progress()
-		_play_sfx("game_over")
-		return
-	banner_text = "The wall descends"
-	banner_timer = 1.5
-	_play_sfx("explosion", 0.8)
-	_load_level(level_index)
 
 
 func _update_stuck_balls() -> void:
@@ -2352,11 +2314,6 @@ func _draw() -> void:
 		draw_rect(Rect2(Vector2.ZERO, size), Color("090909", 0.16), true)
 		draw_circle(Vector2(120.0, size.y - 110.0), 210.0, Color("201716", 0.12))
 		draw_circle(Vector2(size.x - 120.0, 150.0), 190.0, Color("1a1918", 0.1))
-	if wall_warning and wall_warning_line > 0.0:
-		var pulse = 0.35 + 0.2 * sin(title_phase * 8.0)
-		var warning_color = Color("ff8e6e", pulse)
-		draw_line(Vector2(PLAYFIELD.position.x, wall_warning_line) + camera_offset * 0.18, Vector2(PLAYFIELD.end.x, wall_warning_line) + camera_offset * 0.18, warning_color, 2.0)
-		draw_line(Vector2(PLAYFIELD.position.x, wall_breach_line) + camera_offset * 0.18, Vector2(PLAYFIELD.end.x, wall_breach_line) + camera_offset * 0.18, Color("ff5448", 0.18), 1.0)
 
 	_draw_bricks()
 	_draw_powerups()
