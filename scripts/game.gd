@@ -6,6 +6,7 @@ const BASE_PADDLE_WIDTH = 170.0
 const PADDLE_HEIGHT = 24.0
 const BALL_RADIUS = 10.0
 const SAVE_PATH = "user://progress.cfg"
+const TARGET_LEVEL_COUNT = 99
 
 const BRICK_META = {
 	"A": {"hits": 1, "color": Color("27d8ff"), "highlight": Color("b3f9ff"), "points": 110, "glow": Color("27d8ff", 0.75)},
@@ -25,7 +26,7 @@ const POWERUP_META = {
 	"slow": {"label": "S", "title": "Sugar Slow", "color": Color("9dd2ff"), "weight": 10.0, "duration": 11.0},
 	"heart": {"label": "H", "title": "Heart", "color": Color("ffffff"), "weight": 7.0},
 	"nova": {"label": "N", "title": "Neon Nova", "color": Color("ff914a"), "weight": 7.0},
-	"bomb": {"label": "B", "title": "Bomb Slow", "color": Color("ff4c86"), "weight": 10.0, "duration": 8.0, "bad": true}
+	"bomb": {"label": "B", "title": "Bomb Slow", "color": Color("ff4c86"), "weight": 10.0, "duration": 10.0, "bad": true}
 }
 
 var levels: Array = []
@@ -109,6 +110,8 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_PASS
 	_ensure_input_actions()
 	levels = _build_level_library()
+	if levels.size() != TARGET_LEVEL_COUNT:
+		push_warning("Expected %d levels, built %d." % [TARGET_LEVEL_COUNT, levels.size()])
 	_load_progress()
 	_build_audio()
 	_build_ui()
@@ -419,7 +422,7 @@ func _build_level_library() -> Array:
 			"......D..DD..D......"
 		], sinister_palettes[3], true)
 	]
-	base_levels.append_array(_build_generated_levels(base_levels.size(), 99, candy_palettes, sinister_palettes))
+	base_levels.append_array(_build_generated_levels(base_levels.size(), TARGET_LEVEL_COUNT, candy_palettes, sinister_palettes))
 	return base_levels
 
 
@@ -1751,17 +1754,21 @@ func _update_paddle(delta: float) -> void:
 	if active_effects.has("wide"):
 		target_width *= 1.55
 	paddle["target_width"] = clamp(target_width, 92.0, 320.0)
-	var movement_slow = 0.38 if active_effects.has("bomb") else 1.0
+	var bomb_active = active_effects.has("bomb")
+	var movement_slow = 0.14 if bomb_active else 1.0
 	paddle["width"] = lerp(float(paddle["width"]), float(paddle["target_width"]), 1.0 - pow(0.001, delta * movement_slow))
 
 	var move_strength = Input.get_action_strength("move_right") - Input.get_action_strength("move_left")
 	if abs(move_strength) > 0.01:
-		var keyboard_speed = 2050.0 * movement_slow
+		var keyboard_speed = 420.0 if bomb_active else 2050.0
 		paddle["pos"].x += move_strength * keyboard_speed * delta
 	elif Rect2(Vector2.ZERO, size).has_point(get_local_mouse_position()):
 		var target_x = get_local_mouse_position().x
 		target_x = clamp(target_x, PLAYFIELD.position.x + paddle["width"] * 0.5, PLAYFIELD.end.x - paddle["width"] * 0.5)
-		paddle["pos"].x = lerp(float(paddle["pos"].x), target_x, 1.0 - pow(0.0001, delta * movement_slow))
+		if bomb_active:
+			paddle["pos"].x = move_toward(float(paddle["pos"].x), target_x, 460.0 * delta)
+		else:
+			paddle["pos"].x = lerp(float(paddle["pos"].x), target_x, 1.0 - pow(0.0001, delta * movement_slow))
 	paddle["pos"].x = clamp(paddle["pos"].x, PLAYFIELD.position.x + paddle["width"] * 0.5, PLAYFIELD.end.x - paddle["width"] * 0.5)
 	paddle["vx"] = (paddle["pos"].x - last_paddle_x) / max(delta, 0.001)
 	last_paddle_x = paddle["pos"].x
