@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "project": "Candy Breakout Bombast",
+  "overview": "Build a native Godot breakout game strongly inspired by DX-Ball 2 with bright candy-shop spectacle, multi-ball chaos, falling power-ups, juicy screen feedback, and an easy Windows export path for non-technical players.",
+  "openQuestions": [
+    "Assume Windows desktop is the primary shipping target for the first release.",
+    "Assume Godot 4.x with GDScript is acceptable because the shipped deliverable is still a native executable package.",
+    "Assume procedural visuals and synth-free presentation are acceptable for version one if external art and music would slow delivery."
+  ],
+  "qualityGates": [
+    "godot --headless --path . --quit-after 1",
+    "powershell -ExecutionPolicy Bypass -File scripts/export-windows.ps1"
+  ],
+  "stories": [
+    {
+      "id": "US-001",
+      "title": "Bootstrap a native Godot project",
+      "status": "done",
+      "dependsOn": [],
+      "description": "Create the Godot project, main scene, repo hygiene, and Ralph task scaffolding so work is resumable inside the repo.",
+      "acceptanceCriteria": [
+        "The repo contains a valid Godot project file and a main scene.",
+        "Ralph task state exists in .agents/tasks and progress notes exist in .ralph.",
+        "The project can be opened directly in Godot without additional manual setup."
+      ]
+    },
+    {
+      "id": "US-002",
+      "title": "Implement the core arcade loop",
+      "status": "done",
+      "dependsOn": [
+        "US-001"
+      ],
+      "description": "Add paddle, balls, collisions, bricks, power-up drops, lives, score, level flow, and at least one negative pickup.",
+      "acceptanceCriteria": [
+        "The player can start, launch, clear bricks, lose balls, and progress to another board.",
+        "Multiple balls can be active at once without instantly destabilizing the game.",
+        "A bad pickup can punish the player in a clear way."
+      ]
+    },
+    {
+      "id": "US-003",
+      "title": "Push the juice and ship it cleanly",
+      "status": "done",
+      "dependsOn": [
+        "US-002"
+      ],
+      "description": "Add visual spectacle, persistence, packaging docs, and a Windows export script that produces a non-technical-player-friendly bundle.",
+      "acceptanceCriteria": [
+        "The game has visible particles, glows, animated backgrounds, and strong title or game-over presentation.",
+        "High score persists between runs.",
+        "There is a documented script that exports a Windows build into a dist folder."
+      ]
+    }
+  ]
+}
