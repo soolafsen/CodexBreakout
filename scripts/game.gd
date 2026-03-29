@@ -850,13 +850,14 @@ func _update_paddle(delta: float) -> void:
 	paddle["width"] = lerp(float(paddle["width"]), float(paddle["target_width"]), 1.0 - pow(0.001, delta * movement_slow))
 
 	var move_strength = Input.get_action_strength("move_right") - Input.get_action_strength("move_left")
-	var target_x = paddle["pos"].x
 	if abs(move_strength) > 0.01:
-		target_x += move_strength * 1080.0 * delta * movement_slow
+		var keyboard_speed = 2050.0 * movement_slow
+		paddle["pos"].x += move_strength * keyboard_speed * delta
 	elif Rect2(Vector2.ZERO, size).has_point(get_local_mouse_position()):
-		target_x = get_local_mouse_position().x
-	target_x = clamp(target_x, PLAYFIELD.position.x + paddle["width"] * 0.5, PLAYFIELD.end.x - paddle["width"] * 0.5)
-	paddle["pos"].x = lerp(float(paddle["pos"].x), target_x, 1.0 - pow(0.0001, delta * movement_slow))
+		var target_x = get_local_mouse_position().x
+		target_x = clamp(target_x, PLAYFIELD.position.x + paddle["width"] * 0.5, PLAYFIELD.end.x - paddle["width"] * 0.5)
+		paddle["pos"].x = lerp(float(paddle["pos"].x), target_x, 1.0 - pow(0.0001, delta * movement_slow))
+	paddle["pos"].x = clamp(paddle["pos"].x, PLAYFIELD.position.x + paddle["width"] * 0.5, PLAYFIELD.end.x - paddle["width"] * 0.5)
 	paddle["vx"] = (paddle["pos"].x - last_paddle_x) / max(delta, 0.001)
 	last_paddle_x = paddle["pos"].x
 
