@@ -15,12 +15,13 @@ For source builds and export details, see [Development](docs/development.md).
 
 ## Controls
 
-- `Mouse` or `Left/Right`: move paddle
-- `Click` or `Space`: launch ball / continue / restart
+- `Mouse` or `A` / `D` / `Left` / `Right`: move paddle
+- `Click` or `W` or `Space`: launch ball / continue / restart
 - `F`: fire lasers when laser mode is active
+- `Esc` or `P`: pause / resume
 
 ## Notes
 
 - High score is saved locally in Godot `user://progress.cfg`.
-- This first version is fully procedural: no external art pipeline is required.
+- The current build includes an in-game menu with speed, cheat mode, music, SFX, volume, pause, and exit.
 - Ralph tracking lives in `.agents/tasks/prd-candy-breakout-bombast.json`.

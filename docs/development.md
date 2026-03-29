@@ -45,9 +45,12 @@ What it does:
 
 ## Controls
 
-- `Mouse` or `Left/Right`: move paddle
-- `Click` or `Space`: launch ball / continue / restart
+- `Mouse` or `A` / `D` / `Left` / `Right`: move paddle
+- `Click` or `W` or `Space`: launch ball / continue / restart
 - `F`: fire lasers when laser mode is active
+- `Esc` or `P`: pause / resume
+- `N`: cheat skip level when cheat mode is enabled
+- `B`: cheat extra ball when cheat mode is enabled
 
 ## Notes
 

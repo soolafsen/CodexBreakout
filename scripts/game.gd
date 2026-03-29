@@ -1,5 +1,6 @@
 extends Control
 
+const AudioSynth = preload("res://scripts/audio_synth.gd")
 const PLAYFIELD = Rect2(Vector2(120.0, 150.0), Vector2(1360.0, 660.0))
 const BASE_PADDLE_WIDTH = 170.0
 const PADDLE_HEIGHT = 24.0
@@ -138,6 +139,9 @@ var combo_multiplier = 1
 var combo_clock = 0.0
 var state = "title"
 var state_timer = 0.0
+var paused_from_state = "playing"
+var menu_context = "title"
+var options_open = false
 var title_phase = 0.0
 var banner_text = ""
 var banner_timer = 0.0
@@ -151,6 +155,17 @@ var laser_cooldown = 0.0
 var last_paddle_x = PLAYFIELD.get_center().x
 var current_level_name = ""
 var run_won = false
+var settings = {
+	"speed": 5,
+	"cheat": false,
+	"music": true,
+	"sfx": true,
+	"volume": 0.75
+}
+var music_player: AudioStreamPlayer
+var sfx_players: Array = []
+var sfx_index = 0
+var audio_streams = {}
 
 var score_label: Label
 var level_label: Label
@@ -160,16 +175,39 @@ var banner_label: Label
 var title_label: Label
 var subtitle_label: Label
 var powers_label: Label
+var pause_button: Button
+var menu_panel: PanelContainer
+var menu_title_label: Label
+var menu_hint_label: Label
+var buttons_box: VBoxContainer
+var primary_button: Button
+var secondary_button: Button
+var options_button: Button
+var exit_button: Button
+var back_button: Button
+var options_box: VBoxContainer
+var speed_value_label: Label
+var speed_slider: HSlider
+var cheat_toggle: CheckButton
+var music_toggle: CheckButton
+var sfx_toggle: CheckButton
+var volume_value_label: Label
+var volume_slider: HSlider
 
 
 func _ready() -> void:
 	rng.randomize()
 	mouse_filter = Control.MOUSE_FILTER_PASS
+	_ensure_input_actions()
 	_load_progress()
+	_build_audio()
 	_build_ui()
 	_start_new_game()
 	state = "title"
+	menu_context = "title"
 	_update_overlay()
+	_refresh_menu_ui()
+	_ensure_music_state()
 	_refresh_ui()
 	queue_redraw()
 
@@ -177,6 +215,60 @@ func _ready() -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED:
 		_layout_ui()
+
+
+func _ensure_input_actions() -> void:
+	_bind_key_action("move_left", KEY_A)
+	_bind_key_action("move_left", KEY_LEFT)
+	_bind_key_action("move_right", KEY_D)
+	_bind_key_action("move_right", KEY_RIGHT)
+	_bind_key_action("launch", KEY_SPACE)
+	_bind_key_action("launch", KEY_ENTER)
+	_bind_key_action("launch", KEY_W)
+	_bind_key_action("shoot", KEY_F)
+	_bind_key_action("pause", KEY_ESCAPE)
+	_bind_key_action("pause", KEY_P)
+	_bind_key_action("cheat_skip", KEY_N)
+	_bind_key_action("cheat_ball", KEY_B)
+	_bind_mouse_action("launch", MOUSE_BUTTON_LEFT)
+
+
+func _bind_key_action(action: String, keycode: Key) -> void:
+	if not InputMap.has_action(action):
+		InputMap.add_action(action)
+	for event in InputMap.action_get_events(action):
+		if event is InputEventKey and event.physical_keycode == keycode:
+			return
+	var key_event = InputEventKey.new()
+	key_event.physical_keycode = keycode
+	InputMap.action_add_event(action, key_event)
+
+
+func _bind_mouse_action(action: String, button_index: MouseButton) -> void:
+	if not InputMap.has_action(action):
+		InputMap.add_action(action)
+	for event in InputMap.action_get_events(action):
+		if event is InputEventMouseButton and event.button_index == button_index:
+			return
+	var mouse_event = InputEventMouseButton.new()
+	mouse_event.button_index = button_index
+	InputMap.action_add_event(action, mouse_event)
+
+
+func _build_audio() -> void:
+	audio_streams = AudioSynth.create_sfx_library()
+	audio_streams["music"] = AudioSynth.create_music_stream()
+
+	music_player = AudioStreamPlayer.new()
+	music_player.stream = audio_streams["music"]
+	add_child(music_player)
+
+	for _index in range(10):
+		var sfx_player = AudioStreamPlayer.new()
+		add_child(sfx_player)
+		sfx_players.append(sfx_player)
+
+	_update_audio_mix()
 
 
 func _build_ui() -> void:
@@ -197,6 +289,7 @@ func _build_ui() -> void:
 	add_child(title_label)
 	add_child(subtitle_label)
 	add_child(powers_label)
+	_build_menu_ui()
 
 	_layout_ui()
 
@@ -212,6 +305,141 @@ func _make_label(font_size: int, color: Color, alignment: HorizontalAlignment) -
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return label
+
+
+func _build_menu_ui() -> void:
+	pause_button = Button.new()
+	pause_button.text = "Pause"
+	pause_button.pressed.connect(_on_pause_button_pressed)
+	add_child(pause_button)
+
+	menu_panel = PanelContainer.new()
+	menu_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	menu_panel.visible = true
+	add_child(menu_panel)
+
+	var margin = MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 28)
+	margin.add_theme_constant_override("margin_right", 28)
+	margin.add_theme_constant_override("margin_top", 24)
+	margin.add_theme_constant_override("margin_bottom", 24)
+	menu_panel.add_child(margin)
+
+	var content = VBoxContainer.new()
+	content.add_theme_constant_override("separation", 12)
+	margin.add_child(content)
+
+	menu_title_label = _make_label(32, Color("fff8c8"), HORIZONTAL_ALIGNMENT_CENTER)
+	menu_title_label.custom_minimum_size = Vector2(420, 40)
+	content.add_child(menu_title_label)
+
+	menu_hint_label = _make_label(18, Color("dff8ff"), HORIZONTAL_ALIGNMENT_CENTER)
+	menu_hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	menu_hint_label.custom_minimum_size = Vector2(420, 56)
+	content.add_child(menu_hint_label)
+
+	buttons_box = VBoxContainer.new()
+	buttons_box.add_theme_constant_override("separation", 10)
+	content.add_child(buttons_box)
+
+	primary_button = _make_menu_button("Play")
+	primary_button.pressed.connect(_on_primary_button_pressed)
+	buttons_box.add_child(primary_button)
+
+	secondary_button = _make_menu_button("Restart Run")
+	secondary_button.pressed.connect(_on_secondary_button_pressed)
+	buttons_box.add_child(secondary_button)
+
+	options_button = _make_menu_button("Options")
+	options_button.pressed.connect(_on_options_button_pressed)
+	buttons_box.add_child(options_button)
+
+	exit_button = _make_menu_button("Exit")
+	exit_button.pressed.connect(_on_exit_button_pressed)
+	buttons_box.add_child(exit_button)
+
+	options_box = VBoxContainer.new()
+	options_box.visible = false
+	options_box.add_theme_constant_override("separation", 8)
+	content.add_child(options_box)
+
+	var speed_row = _make_slider_row("Speed", 1.0, 10.0, 1.0)
+	speed_value_label = speed_row["value"]
+	speed_slider = speed_row["slider"]
+	speed_slider.value_changed.connect(_on_speed_changed)
+	options_box.add_child(speed_row["row"])
+
+	cheat_toggle = _make_check_button("Cheat mode")
+	cheat_toggle.toggled.connect(_on_cheat_toggled)
+	options_box.add_child(cheat_toggle)
+
+	music_toggle = _make_check_button("Music")
+	music_toggle.toggled.connect(_on_music_toggled)
+	options_box.add_child(music_toggle)
+
+	sfx_toggle = _make_check_button("Sound effects")
+	sfx_toggle.toggled.connect(_on_sfx_toggled)
+	options_box.add_child(sfx_toggle)
+
+	var volume_row = _make_slider_row("Volume", 0.0, 100.0, 1.0)
+	volume_value_label = volume_row["value"]
+	volume_slider = volume_row["slider"]
+	volume_slider.value_changed.connect(_on_volume_changed)
+	options_box.add_child(volume_row["row"])
+
+	back_button = _make_menu_button("Back")
+	back_button.pressed.connect(_on_back_button_pressed)
+	content.add_child(back_button)
+
+	_sync_settings_controls()
+
+
+func _make_menu_button(text: String) -> Button:
+	var button = Button.new()
+	button.text = text
+	button.custom_minimum_size = Vector2(360, 42)
+	button.focus_mode = Control.FOCUS_ALL
+	return button
+
+
+func _make_check_button(text: String) -> CheckButton:
+	var button = CheckButton.new()
+	button.text = text
+	button.custom_minimum_size = Vector2(360, 34)
+	return button
+
+
+func _make_slider_row(title: String, min_value: float, max_value: float, step: float) -> Dictionary:
+	var row = VBoxContainer.new()
+	row.add_theme_constant_override("separation", 4)
+	var head = HBoxContainer.new()
+	var name_label = _make_label(16, Color("fff6d0"), HORIZONTAL_ALIGNMENT_LEFT)
+	name_label.text = title
+	name_label.custom_minimum_size = Vector2(240, 24)
+	head.add_child(name_label)
+	var value_label = _make_label(16, Color("c0f6ff"), HORIZONTAL_ALIGNMENT_RIGHT)
+	value_label.custom_minimum_size = Vector2(100, 24)
+	head.add_child(value_label)
+	row.add_child(head)
+	var slider = HSlider.new()
+	slider.min_value = min_value
+	slider.max_value = max_value
+	slider.step = step
+	slider.custom_minimum_size = Vector2(360, 24)
+	row.add_child(slider)
+	return {"row": row, "slider": slider, "value": value_label}
+
+
+func _sync_settings_controls() -> void:
+	if speed_slider == null:
+		return
+	speed_slider.value = settings["speed"]
+	speed_value_label.text = "%d" % int(settings["speed"])
+	cheat_toggle.button_pressed = settings["cheat"]
+	music_toggle.button_pressed = settings["music"]
+	sfx_toggle.button_pressed = settings["sfx"]
+	volume_slider.value = round(float(settings["volume"]) * 100.0)
+	volume_value_label.text = "%d%%" % int(volume_slider.value)
 
 
 func _layout_ui() -> void:
@@ -233,16 +461,256 @@ func _layout_ui() -> void:
 	title_label.size = Vector2(840, 88)
 	subtitle_label.position = Vector2(size.x * 0.5 - 420, size.y * 0.28 + 92)
 	subtitle_label.size = Vector2(840, 150)
+	pause_button.position = Vector2(size.x - 176, 96)
+	pause_button.size = Vector2(120, 38)
+	menu_panel.position = Vector2(size.x * 0.5 - 240, size.y * 0.5 - 220)
+	menu_panel.size = Vector2(480, 440)
+
+
+func _game_speed_scale() -> float:
+	return 0.55 + float(settings["speed"]) * 0.09
+
+
+func _max_lives() -> int:
+	return 9 if settings["cheat"] else 5
+
+
+func _refresh_menu_ui() -> void:
+	if menu_panel == null:
+		return
+
+	var menu_visible = state in ["title", "paused", "game_over"] or options_open
+	menu_panel.visible = menu_visible
+	buttons_box.visible = not options_open
+	options_box.visible = options_open
+	back_button.visible = options_open
+	pause_button.visible = state in ["serve", "playing", "paused"]
+	pause_button.text = "Resume" if state == "paused" else "Pause"
+
+	if options_open:
+		menu_title_label.text = "Options"
+		menu_hint_label.text = "Speed, cheat mode, pause-safe toggles, and audio controls."
+		primary_button.visible = false
+		secondary_button.visible = false
+		options_button.visible = false
+		exit_button.visible = true
+		exit_button.text = "Exit Game"
+		back_button.grab_focus()
+		return
+
+	primary_button.visible = true
+	options_button.visible = true
+	exit_button.visible = true
+	back_button.visible = false
+
+	match state:
+		"title":
+			menu_title_label.text = "Candy Breakout Bombast"
+			menu_hint_label.text = "Play immediately, or tweak a few arcade options first."
+			primary_button.text = "Play"
+			secondary_button.visible = false
+			options_button.text = "Options"
+			exit_button.text = "Exit"
+		"paused":
+			menu_title_label.text = "Paused"
+			menu_hint_label.text = "Resume, restart the run, or change options."
+			primary_button.text = "Resume"
+			secondary_button.visible = true
+			secondary_button.text = "Restart Run"
+			options_button.text = "Options"
+			exit_button.text = "Exit"
+		"game_over":
+			menu_title_label.text = "Set Complete" if run_won else "Game Over"
+			menu_hint_label.text = "Best score is saved locally. Start another run or adjust options."
+			primary_button.text = "Play Again"
+			secondary_button.visible = false
+			options_button.text = "Options"
+			exit_button.text = "Exit"
+		_:
+			menu_title_label.text = ""
+			menu_hint_label.text = ""
+			primary_button.visible = false
+			secondary_button.visible = false
+			options_button.visible = false
+			exit_button.visible = false
+
+	if primary_button.visible:
+		primary_button.grab_focus()
+
+
+func _open_options() -> void:
+	options_open = true
+	_sync_settings_controls()
+	_refresh_menu_ui()
+	_play_sfx("menu")
+
+
+func _close_options() -> void:
+	options_open = false
+	_refresh_menu_ui()
+	_play_sfx("menu")
+
+
+func _pause_game() -> void:
+	if state not in ["serve", "playing"]:
+		return
+	paused_from_state = state
+	state = "paused"
+	state_timer = 0.0
+	menu_context = "paused"
+	options_open = false
+	_refresh_menu_ui()
+	_ensure_music_state()
+	_play_sfx("pause")
+
+
+func _resume_game() -> void:
+	if state != "paused":
+		return
+	state = paused_from_state
+	state_timer = 0.0
+	options_open = false
+	_refresh_menu_ui()
+	_ensure_music_state()
+	_play_sfx("menu")
+
+
+func _toggle_pause() -> void:
+	if options_open and state == "paused":
+		_close_options()
+		return
+	if state == "paused":
+		_resume_game()
+	else:
+		_pause_game()
+
+
+func _build_db(multiplier: float) -> float:
+	return linear_to_db(max(multiplier, 0.0001))
+
+
+func _update_audio_mix() -> void:
+	if music_player == null:
+		return
+	var volume = float(settings["volume"])
+	music_player.volume_db = _build_db(volume * 0.5)
+	for player in sfx_players:
+		player.volume_db = _build_db(volume * 0.8)
+
+
+func _ensure_music_state() -> void:
+	if music_player == null:
+		return
+	_update_audio_mix()
+	if not settings["music"]:
+		music_player.stop()
+		music_player.stream_paused = false
+		return
+	if state == "paused":
+		music_player.stream_paused = true
+		return
+	music_player.stream_paused = false
+	if not music_player.playing:
+		music_player.play()
+
+
+func _play_sfx(name: String, pitch_scale: float = 1.0) -> void:
+	if not settings["sfx"]:
+		return
+	if not audio_streams.has(name) or sfx_players.is_empty():
+		return
+	var player: AudioStreamPlayer = sfx_players[sfx_index % sfx_players.size()]
+	sfx_index += 1
+	player.stop()
+	player.stream = audio_streams[name]
+	player.pitch_scale = pitch_scale
+	player.play()
+
+
+func _on_pause_button_pressed() -> void:
+	_toggle_pause()
+
+
+func _on_primary_button_pressed() -> void:
+	match state:
+		"title", "game_over":
+			_start_new_game()
+			state = "serve"
+			state_timer = 0.0
+			menu_context = ""
+			options_open = false
+			_play_sfx("menu")
+		"paused":
+			_resume_game()
+	_refresh_menu_ui()
+
+
+func _on_secondary_button_pressed() -> void:
+	_start_new_game()
+	state = "serve"
+	state_timer = 0.0
+	menu_context = ""
+	options_open = false
+	_play_sfx("menu")
+	_refresh_menu_ui()
+
+
+func _on_options_button_pressed() -> void:
+	_open_options()
+
+
+func _on_back_button_pressed() -> void:
+	_close_options()
+
+
+func _on_exit_button_pressed() -> void:
+	_play_sfx("pause")
+	get_tree().quit()
+
+
+func _on_speed_changed(value: float) -> void:
+	settings["speed"] = int(value)
+	speed_value_label.text = "%d" % int(value)
+	_save_progress()
+
+
+func _on_cheat_toggled(enabled: bool) -> void:
+	settings["cheat"] = enabled
+	_save_progress()
+	_play_sfx("menu")
+
+
+func _on_music_toggled(enabled: bool) -> void:
+	settings["music"] = enabled
+	_save_progress()
+	_ensure_music_state()
+	_play_sfx("menu")
+
+
+func _on_sfx_toggled(enabled: bool) -> void:
+	settings["sfx"] = enabled
+	_save_progress()
+	if enabled:
+		_play_sfx("menu")
+
+
+func _on_volume_changed(value: float) -> void:
+	settings["volume"] = value / 100.0
+	volume_value_label.text = "%d%%" % int(value)
+	_save_progress()
+	_update_audio_mix()
 
 
 func _start_new_game() -> void:
 	score = 0
-	lives = 3
+	lives = 7 if settings["cheat"] else 3
 	level_index = 0
 	active_effects.clear()
 	run_won = false
 	combo_multiplier = 1
 	combo_clock = 0.0
+	options_open = false
+	menu_context = ""
 	_load_level(level_index)
 
 
@@ -257,6 +725,7 @@ func _load_level(index: int) -> void:
 	floaters.clear()
 	active_effects.clear()
 	laser_cooldown = 0.0
+	options_open = false
 
 	var layout: Array = level["layout"]
 	var column_count = 18
@@ -306,7 +775,9 @@ func _load_level(index: int) -> void:
 	banner_timer = 2.0
 	_flash(Color("ffffff", 0.65), 0.35)
 	_shake(8.0)
+	_ensure_music_state()
 	_refresh_ui()
+	_refresh_menu_ui()
 	_update_overlay()
 
 
@@ -326,27 +797,33 @@ func _process(delta: float) -> void:
 	title_phase += delta
 	state_timer += delta
 	_update_overlay()
-	_update_effects(delta)
-	_update_paddle(delta)
-	_update_powerups(delta)
-	_update_lasers(delta)
-	_update_particles(delta)
-	_update_floaters(delta)
+	_ensure_music_state()
+	var world_delta = delta * _game_speed_scale()
+	if state != "paused":
+		_update_effects(delta)
+		_update_paddle(delta)
+		_update_powerups(world_delta)
+		_update_lasers(world_delta)
+		_update_particles(world_delta)
+		_update_floaters(world_delta)
 
 	if state == "playing":
-		_update_balls(delta)
+		_update_balls(world_delta)
 	elif state == "serve":
 		_update_stuck_balls()
 	elif state == "level_clear" and state_timer > 1.5:
 		if level_index < LEVELS.size() - 1:
-			lives = min(lives + 1, 5)
+			lives = min(lives + 1, _max_lives())
 			_save_progress()
+			_play_sfx("level_clear")
 			_load_level(level_index + 1)
 		else:
 			run_won = true
 			state = "game_over"
 			state_timer = 0.0
+			menu_context = "game_over"
 			_save_progress()
+			_play_sfx("game_over")
 
 	if combo_clock > 0.0:
 		combo_clock -= delta
@@ -362,6 +839,7 @@ func _process(delta: float) -> void:
 		rng.randf_range(-screen_shake, screen_shake)
 	)
 
+	_refresh_menu_ui()
 	_refresh_ui()
 	queue_redraw()
 
@@ -378,8 +856,8 @@ func _update_paddle(delta: float) -> void:
 	var target_x = get_local_mouse_position().x
 	if not Rect2(Vector2.ZERO, size).has_point(get_local_mouse_position()):
 		target_x = paddle["pos"].x
-	target_x += Input.get_action_strength("ui_right") * 520.0 * delta
-	target_x -= Input.get_action_strength("ui_left") * 520.0 * delta
+	target_x += Input.get_action_strength("move_right") * 520.0 * delta
+	target_x -= Input.get_action_strength("move_left") * 520.0 * delta
 	target_x = clamp(target_x, PLAYFIELD.position.x + paddle["width"] * 0.5, PLAYFIELD.end.x - paddle["width"] * 0.5)
 	paddle["pos"].x = lerp(float(paddle["pos"].x), target_x, 1.0 - pow(0.0001, delta))
 	paddle["vx"] = (paddle["pos"].x - last_paddle_x) / max(delta, 0.001)
@@ -433,13 +911,16 @@ func _update_balls(delta: float) -> void:
 		if lives <= 0:
 			state = "game_over"
 			state_timer = 0.0
+			menu_context = "game_over"
 			_save_progress()
+			_play_sfx("game_over")
 		else:
 			state = "serve"
 			state_timer = 0.0
 			balls.append(_make_ball(Vector2(paddle["pos"].x, paddle["pos"].y - 24.0), Vector2.ZERO, true))
 			banner_text = "Ball lost"
 			banner_timer = 1.2
+			_play_sfx("pause")
 
 
 func _handle_wall_collision(ball: Dictionary) -> void:
@@ -479,6 +960,7 @@ func _handle_paddle_collision(ball: Dictionary) -> void:
 	ball["pos"].y = rect.position.y - ball["radius"] - 2.0
 	_spawn_particles(ball["pos"], Color("ffe07a"), 10, 240.0, 0.35, 3.0)
 	_shake(4.0)
+	_play_sfx("paddle", randf_range(0.96, 1.08))
 	if active_effects.has("catch"):
 		ball["stuck"] = true
 		ball["vel"] = Vector2.ZERO
@@ -527,6 +1009,7 @@ func _damage_brick(brick: Dictionary, hit_point: Vector2, from_nova: bool) -> vo
 		_spawn_particles(hit_point, brick["highlight"], 10, 190.0, 0.32, 3.2)
 		_float_score(hit_point, "CRACK", brick["highlight"])
 		_shake(2.5)
+		_play_sfx("brick_hit", rng.randf_range(0.94, 1.06))
 		return
 
 	brick["alive"] = false
@@ -539,6 +1022,7 @@ func _damage_brick(brick: Dictionary, hit_point: Vector2, from_nova: bool) -> vo
 	_float_score(hit_point, "+%d" % points, brick["highlight"])
 	_flash(brick["glow"], 0.16)
 	_shake(8.0 if brick.get("explosive", false) else 5.5)
+	_play_sfx("explosion" if brick.get("explosive", false) else "brick_break", rng.randf_range(0.92, 1.08))
 
 	if brick.get("explosive", false) and not from_nova:
 		for neighbor in bricks:
@@ -592,6 +1076,8 @@ func _spawn_powerup(position: Vector2) -> void:
 		if roll <= 0.0:
 			selected = key
 			break
+	if settings["cheat"] and selected == "shrink":
+		selected = "extra"
 
 	var meta: Dictionary = POWERUP_META[selected]
 	powerups.append(
@@ -622,6 +1108,7 @@ func _collect_powerup(pickup: Dictionary) -> void:
 	_float_score(pickup["pos"], meta["title"], pickup["color"])
 	_flash(pickup["color"], 0.24)
 	_shake(7.0 if meta.get("bad", false) else 5.0)
+	_play_sfx("pickup_bad" if meta.get("bad", false) else "pickup_good", rng.randf_range(0.95, 1.08))
 
 	match kind:
 		"wide", "laser", "catch", "slow", "shrink":
@@ -633,7 +1120,7 @@ func _collect_powerup(pickup: Dictionary) -> void:
 		"multi":
 			_split_balls()
 		"extra":
-			lives = min(lives + 1, 5)
+			lives = min(lives + 1, _max_lives())
 		"nova":
 			_trigger_nova()
 
@@ -659,6 +1146,7 @@ func _split_balls() -> void:
 func _trigger_nova() -> void:
 	_flash(Color("ffb347", 0.88), 0.45)
 	_shake(12.0)
+	_play_sfx("explosion", 0.88)
 	var hits = 0
 	for brick in bricks:
 		if not brick["alive"]:
@@ -801,12 +1289,14 @@ func _refresh_ui() -> void:
 	subtitle_label.visible = state in ["title", "game_over"]
 	title_label.text = overlay_message
 	subtitle_label.text = overlay_subtitle
+	title_label.modulate.a = 0.0 if menu_panel.visible else 1.0
+	subtitle_label.modulate.a = 0.0 if menu_panel.visible else 1.0
 
 
 func _update_overlay() -> void:
 	if state == "title":
 		overlay_message = "CANDY BREAKOUT BOMBAST"
-		overlay_subtitle = "DX-Ball-style brick chaos in a candy-store meltdown.\nMove with mouse or arrow keys. Click or Space launches. F fires lasers.\nBreak everything. Catch the good drops. Dodge the bitter ones."
+		overlay_subtitle = "DX-Ball-style brick chaos in a candy-store meltdown.\nMouse stays live. A and D are the preferred keyboard move keys. W or Space launches. F fires lasers."
 	elif state == "game_over":
 		if run_won:
 			overlay_message = "SET COMPLETE"
@@ -972,13 +1462,33 @@ func _draw_floaters() -> void:
 		)
 
 
-func _input(event: InputEvent) -> void:
-	if event.is_action_pressed("launch"):
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("pause"):
+		if state in ["serve", "playing", "paused"]:
+			_toggle_pause()
+		elif options_open:
+			_close_options()
+	elif settings["cheat"] and event.is_action_pressed("cheat_skip"):
+		if state in ["serve", "playing"]:
+			banner_text = "Cheat skip"
+			banner_timer = 1.0
+			_play_sfx("level_clear")
+			if level_index < LEVELS.size() - 1:
+				_load_level(level_index + 1)
+			else:
+				run_won = true
+				state = "game_over"
+				menu_context = "game_over"
+				_refresh_menu_ui()
+	elif settings["cheat"] and event.is_action_pressed("cheat_ball"):
+		if state in ["serve", "playing"] and balls.size() < 8:
+			var bonus_ball = _make_ball(Vector2(paddle["pos"].x, paddle["pos"].y - 36.0), Vector2(rng.randf_range(-220.0, 220.0), -540.0), false)
+			balls.append(bonus_ball)
+			_play_sfx("pickup_good")
+	elif event.is_action_pressed("launch"):
 		_handle_primary_action()
 	elif event.is_action_pressed("shoot"):
 		_try_fire_lasers()
-	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		_handle_primary_action()
 
 
 func _handle_primary_action() -> void:
@@ -986,15 +1496,22 @@ func _handle_primary_action() -> void:
 		_start_new_game()
 		state = "serve"
 		state_timer = 0.0
+		menu_context = ""
+		options_open = false
+		_play_sfx("launch")
 	elif state == "game_over":
 		_start_new_game()
 		state = "serve"
 		state_timer = 0.0
+		menu_context = ""
+		options_open = false
+		_play_sfx("launch")
 	elif state in ["serve", "playing"]:
 		if _has_stuck_ball():
 			_launch_stuck_balls()
 		elif active_effects.has("laser"):
 			_try_fire_lasers()
+	_refresh_menu_ui()
 
 
 func _has_stuck_ball() -> bool:
@@ -1012,6 +1529,7 @@ func _launch_stuck_balls() -> void:
 		var spread = rng.randf_range(-0.38, 0.38)
 		ball["stuck"] = false
 		ball["vel"] = Vector2(spread * 260.0, -560.0)
+	_play_sfx("launch", rng.randf_range(0.98, 1.04))
 
 
 func _try_fire_lasers() -> void:
@@ -1025,6 +1543,7 @@ func _try_fire_lasers() -> void:
 	lasers.append({"pos": Vector2(paddle["pos"].x - paddle["width"] * 0.36, y), "vel": Vector2(0, -980), "life": 0.8})
 	lasers.append({"pos": Vector2(paddle["pos"].x + paddle["width"] * 0.36, y), "vel": Vector2(0, -980), "life": 0.8})
 	_spawn_particles(Vector2(paddle["pos"].x, y), Color("ffe879"), 10, 180.0, 0.25, 3.5)
+	_play_sfx("laser", rng.randf_range(0.98, 1.03))
 
 
 func _load_progress() -> void:
@@ -1033,10 +1552,20 @@ func _load_progress() -> void:
 		high_score = 0
 		return
 	high_score = int(config.get_value("scores", "high_score", 0))
+	settings["speed"] = int(config.get_value("settings", "speed", settings["speed"]))
+	settings["cheat"] = bool(config.get_value("settings", "cheat", settings["cheat"]))
+	settings["music"] = bool(config.get_value("settings", "music", settings["music"]))
+	settings["sfx"] = bool(config.get_value("settings", "sfx", settings["sfx"]))
+	settings["volume"] = float(config.get_value("settings", "volume", settings["volume"]))
 
 
 func _save_progress() -> void:
 	high_score = max(high_score, score)
 	var config = ConfigFile.new()
 	config.set_value("scores", "high_score", high_score)
+	config.set_value("settings", "speed", settings["speed"])
+	config.set_value("settings", "cheat", settings["cheat"])
+	config.set_value("settings", "music", settings["music"])
+	config.set_value("settings", "sfx", settings["sfx"])
+	config.set_value("settings", "volume", settings["volume"])
 	config.save(SAVE_PATH)
