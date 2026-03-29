@@ -56,3 +56,7 @@ What it does:
 
 - High score is stored in Godot `user://progress.cfg`.
 - `dist/` and `.godot/` are build or generated output and are not committed as source.
+
+## Known Issues
+
+- Descending-wall behavior on sinister levels is still not fully correct: in some runs the wall can stop descending instead of continuing to compress the arena. Treat the intended behavior as "wall pressure stays live for the whole level" unless changed explicitly.
