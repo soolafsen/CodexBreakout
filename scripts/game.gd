@@ -8,6 +8,7 @@ const BALL_RADIUS = 10.0
 const SAVE_PATH = "user://progress.cfg"
 const TARGET_LEVEL_COUNT = 99
 const GAME_SPEED_LEVELS = [0.32, 0.4, 0.5, 0.61, 0.73, 0.86, 1.0, 1.15, 1.31, 1.48]
+const LE_TITS_NOW_LABELS = ["D cup", "B cup", "A cup"]
 
 const BRICK_META = {
 	"A": {"hits": 1, "color": Color("27d8ff"), "highlight": Color("b3f9ff"), "points": 110, "glow": Color("27d8ff", 0.75)},
@@ -75,6 +76,7 @@ var brick_wall_direction = 1.0
 var settings = {
 	"speed": 5,
 	"key_sensitivity": 30,
+	"le_tits_now": 0,
 	"cheat": false,
 	"music": true,
 	"sfx": true,
@@ -108,6 +110,8 @@ var speed_value_label: Label
 var speed_slider: HSlider
 var key_sensitivity_value_label: Label
 var key_sensitivity_slider: HSlider
+var le_tits_now_value_label: Label
+var le_tits_now_slider: HSlider
 var cheat_toggle: CheckButton
 var music_toggle: CheckButton
 var sfx_toggle: CheckButton
@@ -131,6 +135,7 @@ func _ready() -> void:
 	_update_overlay()
 	_refresh_menu_ui()
 	_ensure_music_state()
+	_apply_visual_mode()
 	_refresh_ui()
 	last_mouse_position = get_local_mouse_position()
 	queue_redraw()
@@ -1253,6 +1258,12 @@ func _build_menu_ui() -> void:
 	key_sensitivity_slider.value_changed.connect(_on_key_sensitivity_changed)
 	options_box.add_child(key_sensitivity_row["row"])
 
+	var le_tits_now_row = _make_slider_row("Le tits now", 0.0, 2.0, 1.0)
+	le_tits_now_value_label = le_tits_now_row["value"]
+	le_tits_now_slider = le_tits_now_row["slider"]
+	le_tits_now_slider.value_changed.connect(_on_le_tits_now_changed)
+	options_box.add_child(le_tits_now_row["row"])
+
 	cheat_toggle = _make_check_button("Cheat mode")
 	cheat_toggle.toggled.connect(_on_cheat_toggled)
 	options_box.add_child(cheat_toggle)
@@ -1321,6 +1332,8 @@ func _sync_settings_controls() -> void:
 	speed_value_label.text = "%d" % int(settings["speed"])
 	key_sensitivity_slider.value = settings["key_sensitivity"]
 	key_sensitivity_value_label.text = "%d%%" % int(settings["key_sensitivity"])
+	le_tits_now_slider.value = _le_tits_now_mode()
+	le_tits_now_value_label.text = LE_TITS_NOW_LABELS[_le_tits_now_mode()]
 	cheat_toggle.button_pressed = settings["cheat"]
 	music_toggle.button_pressed = settings["music"]
 	sfx_toggle.button_pressed = settings["sfx"]
@@ -1376,6 +1389,29 @@ func _brick_fall_speed() -> float:
 
 func _keyboard_sensitivity_ratio() -> float:
 	return clampf(float(settings.get("key_sensitivity", 30)) / 100.0, 0.1, 1.0)
+
+
+func _le_tits_now_mode() -> int:
+	return clampi(int(settings.get("le_tits_now", 0)), 0, LE_TITS_NOW_LABELS.size() - 1)
+
+
+func _brick_death_effects_enabled() -> bool:
+	return _le_tits_now_mode() == 0
+
+
+func _screen_shake_enabled() -> bool:
+	return _le_tits_now_mode() == 0
+
+
+func _night_mode_enabled() -> bool:
+	return _le_tits_now_mode() == 2
+
+
+func _apply_visual_mode() -> void:
+	modulate = Color("b8bfd1") if _night_mode_enabled() else Color.WHITE
+	if not _screen_shake_enabled():
+		screen_shake = 0.0
+		camera_offset = Vector2.ZERO
 
 
 func _brick_wall_target_gap() -> float:
@@ -1628,6 +1664,14 @@ func _on_key_sensitivity_changed(value: float) -> void:
 	settings["key_sensitivity"] = int(value)
 	key_sensitivity_value_label.text = "%d%%" % int(value)
 	_save_progress()
+
+
+func _on_le_tits_now_changed(value: float) -> void:
+	settings["le_tits_now"] = int(value)
+	le_tits_now_value_label.text = LE_TITS_NOW_LABELS[_le_tits_now_mode()]
+	_apply_visual_mode()
+	_save_progress()
+	_play_sfx("menu")
 
 
 func _on_cheat_toggled(enabled: bool) -> void:
@@ -2040,10 +2084,11 @@ func _damage_brick(brick: Dictionary, hit_point: Vector2, from_nova: bool) -> vo
 	score += points
 	if score > high_score:
 		high_score = score
-	_spawn_particles(hit_point, brick["color"], 40, 360.0, 0.78, 6.4)
-	_spawn_particles(hit_point, Color.WHITE, 16, 220.0, 0.5, 3.8)
 	_float_score(hit_point, "+%d" % points, brick["highlight"])
-	_flash(brick["glow"], 0.24)
+	if _brick_death_effects_enabled():
+		_spawn_particles(hit_point, brick["color"], 40, 360.0, 0.78, 6.4)
+		_spawn_particles(hit_point, Color.WHITE, 16, 220.0, 0.5, 3.8)
+		_flash(brick["glow"], 0.24)
 	_shake(11.0 if brick.get("explosive", false) else 7.5)
 	_play_sfx("explosion" if brick.get("explosive", false) else "brick_break", rng.randf_range(0.92, 1.08))
 
@@ -2289,6 +2334,8 @@ func _flash(color: Color, amount: float) -> void:
 
 
 func _shake(amount: float) -> void:
+	if not _screen_shake_enabled():
+		return
 	screen_shake = max(screen_shake, amount)
 
 
@@ -2666,6 +2713,7 @@ func _load_progress() -> void:
 	high_score = int(config.get_value("scores", "high_score", 0))
 	settings["speed"] = int(config.get_value("settings", "speed", settings["speed"]))
 	settings["key_sensitivity"] = int(config.get_value("settings", "key_sensitivity", settings["key_sensitivity"]))
+	settings["le_tits_now"] = int(config.get_value("settings", "le_tits_now", settings["le_tits_now"]))
 	settings["cheat"] = bool(config.get_value("settings", "cheat", settings["cheat"]))
 	settings["music"] = bool(config.get_value("settings", "music", settings["music"]))
 	settings["sfx"] = bool(config.get_value("settings", "sfx", settings["sfx"]))
@@ -2678,6 +2726,7 @@ func _save_progress() -> void:
 	config.set_value("scores", "high_score", high_score)
 	config.set_value("settings", "speed", settings["speed"])
 	config.set_value("settings", "key_sensitivity", settings["key_sensitivity"])
+	config.set_value("settings", "le_tits_now", settings["le_tits_now"])
 	config.set_value("settings", "cheat", settings["cheat"])
 	config.set_value("settings", "music", settings["music"])
 	config.set_value("settings", "sfx", settings["sfx"])
