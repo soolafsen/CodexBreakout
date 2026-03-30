@@ -59,4 +59,4 @@ What it does:
 
 ## Known Issues
 
-- Descending-wall behavior on sinister levels is still not fully correct: in some runs the wall can stop descending instead of continuing to compress the arena. Treat the intended behavior as "wall pressure stays live for the whole level" unless changed explicitly.
+- No current wall-motion issue is tracked here. The active follow-up is still the optional paddle-retreat idea described in `docs/future-improvements.md`.

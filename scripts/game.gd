@@ -65,6 +65,10 @@ var laser_cooldown = 0.0
 var last_paddle_x = PLAYFIELD.get_center().x
 var current_level_name = ""
 var run_won = false
+var brick_wall_offset = 0.0
+var brick_wall_upper_offset = 0.0
+var brick_wall_lower_offset = 0.0
+var brick_wall_direction = 1.0
 var settings = {
 	"speed": 5,
 	"cheat": false,
@@ -1354,6 +1358,39 @@ func _brick_fall_speed() -> float:
 	return float(current_level.get("brick_fall_speed", 0.0))
 
 
+func _brick_wall_target_gap() -> float:
+	var progress = float(level_index) / float(max(levels.size() - 1, 1))
+	if _current_theme() == "sinister":
+		return lerpf(110.0, 86.0, progress)
+	return lerpf(150.0, 132.0, progress)
+
+
+func _apply_brick_wall_offset() -> void:
+	for brick in bricks:
+		var rect: Rect2 = brick["base_rect"]
+		rect.position.y += brick_wall_offset
+		brick["rect"] = rect
+
+
+func _configure_brick_wall_motion() -> void:
+	brick_wall_offset = 0.0
+	brick_wall_upper_offset = 0.0
+	brick_wall_lower_offset = 0.0
+	brick_wall_direction = 1.0
+	if bricks.is_empty():
+		return
+
+	var lowest_brick_bottom = PLAYFIELD.position.y
+	for brick in bricks:
+		var rect: Rect2 = brick["base_rect"]
+		lowest_brick_bottom = max(lowest_brick_bottom, rect.end.y)
+
+	var paddle_top = float(paddle["pos"].y) - float(paddle["height"]) * 0.5
+	var lowest_wall_bottom = paddle_top - _brick_wall_target_gap()
+	brick_wall_lower_offset = max(0.0, lowest_wall_bottom - lowest_brick_bottom)
+	_apply_brick_wall_offset()
+
+
 func _powerup_weight_for(key: String) -> float:
 	var meta: Dictionary = POWERUP_META[key]
 	var weight = float(meta["weight"])
@@ -1651,6 +1688,7 @@ func _load_level(index: int) -> void:
 			)
 			bricks.append(
 				{
+					"base_rect": rect,
 					"rect": rect,
 					"hits_left": meta["hits"],
 					"max_hits": meta["hits"],
@@ -1670,6 +1708,7 @@ func _load_level(index: int) -> void:
 		"target_width": BASE_PADDLE_WIDTH,
 		"vx": 0.0
 	}
+	_configure_brick_wall_motion()
 	last_paddle_x = paddle["pos"].x
 	balls.clear()
 	balls.append(_make_ball(Vector2(paddle["pos"].x, paddle["pos"].y - 26.0), Vector2.ZERO, true))
@@ -1778,15 +1817,24 @@ func _update_bricks(delta: float) -> void:
 	var fall_speed = _brick_fall_speed()
 	if fall_speed <= 0.0:
 		return
-	if state != "playing":
+	if state not in ["playing", "serve"]:
+		return
+	if brick_wall_lower_offset <= brick_wall_upper_offset:
 		return
 
-	for brick in bricks:
-		if not brick["alive"]:
-			continue
-		var rect: Rect2 = brick["rect"]
-		rect.position.y += fall_speed * delta
-		brick["rect"] = rect
+	var next_offset = brick_wall_offset + brick_wall_direction * fall_speed * delta
+	if next_offset > brick_wall_lower_offset:
+		var overflow = next_offset - brick_wall_lower_offset
+		brick_wall_offset = max(brick_wall_upper_offset, brick_wall_lower_offset - overflow)
+		brick_wall_direction = -1.0
+	elif next_offset < brick_wall_upper_offset:
+		var overflow = brick_wall_upper_offset - next_offset
+		brick_wall_offset = min(brick_wall_lower_offset, brick_wall_upper_offset + overflow)
+		brick_wall_direction = 1.0
+	else:
+		brick_wall_offset = next_offset
+
+	_apply_brick_wall_offset()
 
 
 func _update_stuck_balls() -> void:
