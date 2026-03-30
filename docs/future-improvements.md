@@ -1,6 +1,6 @@
 # Future Improvements
 
-- Add a limited vertical movement zone for the paddle on suitable modes or levels.
-- Keep the current brick-wall motion as a reversible sway: descend to a tuned floor, retract to the original position, and repeat. Any future retreat mechanic should layer on top of that instead of reverting to one-way compression.
-- Goal: let the player retreat from descending sinister walls and add another skill layer without fully changing the breakout core.
-- Constraint: keep it optional or mode-scoped, because it changes mouse feel, rebound geometry, catch behavior, laser alignment, and overall level balance.
+- Future session target: add optional up/down paddle movement so the player can retreat from the descending wall and play a fuller dodge-and-rebound game.
+- Do not change the current brick-wall behavior when doing that work. Keep the wall as a reversible sway: descend to a tuned floor, retract to the original position, and repeat.
+- Keep the feature optional or mode-scoped. It changes mouse feel, rebound geometry, catch behavior, laser alignment, and overall level balance.
+- Preserve the current input split: mouse should stay direct, while keyboard control should keep its dedicated sensitivity setting and non-snapback handoff behavior.

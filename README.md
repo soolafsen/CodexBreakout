@@ -29,5 +29,5 @@ For source builds and export details, see [Development](docs/development.md).
 ## Notes
 
 - High score is saved locally in Godot `user://progress.cfg`.
-- The current build includes an in-game menu with speed, cheat mode, music, SFX, volume, pause, and exit.
+- The current build includes an in-game menu with speed, key sensitivity, cheat mode, music, SFX, volume, pause, and exit.
 - Ralph tracking lives in `.agents/tasks/prd-candy-breakout-bombast.json`.

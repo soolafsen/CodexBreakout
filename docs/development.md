@@ -59,4 +59,4 @@ What it does:
 
 ## Known Issues
 
-- No current wall-motion issue is tracked here. The active follow-up is still the optional paddle-retreat idea described in `docs/future-improvements.md`.
+- No current blocker is tracked here. The main deferred idea is optional up/down paddle movement, described in `docs/future-improvements.md`.
