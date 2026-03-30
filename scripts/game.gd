@@ -7,6 +7,7 @@ const PADDLE_HEIGHT = 24.0
 const BALL_RADIUS = 10.0
 const SAVE_PATH = "user://progress.cfg"
 const TARGET_LEVEL_COUNT = 99
+const GAME_SPEED_LEVELS = [0.32, 0.4, 0.5, 0.61, 0.73, 0.86, 1.0, 1.15, 1.31, 1.48]
 
 const BRICK_META = {
 	"A": {"hits": 1, "color": Color("27d8ff"), "highlight": Color("b3f9ff"), "points": 110, "glow": Color("27d8ff", 0.75)},
@@ -71,6 +72,7 @@ var brick_wall_lower_offset = 0.0
 var brick_wall_direction = 1.0
 var settings = {
 	"speed": 5,
+	"key_sensitivity": 30,
 	"cheat": false,
 	"music": true,
 	"sfx": true,
@@ -102,6 +104,8 @@ var back_button: Button
 var options_box: VBoxContainer
 var speed_value_label: Label
 var speed_slider: HSlider
+var key_sensitivity_value_label: Label
+var key_sensitivity_slider: HSlider
 var cheat_toggle: CheckButton
 var music_toggle: CheckButton
 var sfx_toggle: CheckButton
@@ -1240,6 +1244,12 @@ func _build_menu_ui() -> void:
 	speed_slider.value_changed.connect(_on_speed_changed)
 	options_box.add_child(speed_row["row"])
 
+	var key_sensitivity_row = _make_slider_row("Key Sensitivity", 10.0, 100.0, 5.0)
+	key_sensitivity_value_label = key_sensitivity_row["value"]
+	key_sensitivity_slider = key_sensitivity_row["slider"]
+	key_sensitivity_slider.value_changed.connect(_on_key_sensitivity_changed)
+	options_box.add_child(key_sensitivity_row["row"])
+
 	cheat_toggle = _make_check_button("Cheat mode")
 	cheat_toggle.toggled.connect(_on_cheat_toggled)
 	options_box.add_child(cheat_toggle)
@@ -1306,6 +1316,8 @@ func _sync_settings_controls() -> void:
 		return
 	speed_slider.value = settings["speed"]
 	speed_value_label.text = "%d" % int(settings["speed"])
+	key_sensitivity_slider.value = settings["key_sensitivity"]
+	key_sensitivity_value_label.text = "%d%%" % int(settings["key_sensitivity"])
 	cheat_toggle.button_pressed = settings["cheat"]
 	music_toggle.button_pressed = settings["music"]
 	sfx_toggle.button_pressed = settings["sfx"]
@@ -1334,12 +1346,13 @@ func _layout_ui() -> void:
 	subtitle_label.size = Vector2(840, 150)
 	pause_button.position = Vector2(size.x - 176, 96)
 	pause_button.size = Vector2(120, 38)
-	menu_panel.position = Vector2(size.x * 0.5 - 240, size.y * 0.5 - 220)
-	menu_panel.size = Vector2(480, 440)
+	menu_panel.size = Vector2(480, 486)
+	menu_panel.position = Vector2(size.x * 0.5 - menu_panel.size.x * 0.5, size.y * 0.5 - menu_panel.size.y * 0.5)
 
 
 func _game_speed_scale() -> float:
-	return 0.55 + float(settings["speed"]) * 0.09
+	var level = clamp(int(settings["speed"]), 1, GAME_SPEED_LEVELS.size())
+	return float(GAME_SPEED_LEVELS[level - 1])
 
 
 func _max_lives() -> int:
@@ -1356,6 +1369,10 @@ func _ball_speed_multiplier() -> float:
 
 func _brick_fall_speed() -> float:
 	return float(current_level.get("brick_fall_speed", 0.0))
+
+
+func _keyboard_sensitivity_ratio() -> float:
+	return clampf(float(settings.get("key_sensitivity", 30)) / 100.0, 0.1, 1.0)
 
 
 func _brick_wall_target_gap() -> float:
@@ -1415,7 +1432,7 @@ func _refresh_menu_ui() -> void:
 
 	if options_open:
 		menu_title_label.text = "Options"
-		menu_hint_label.text = "Speed, cheat mode, pause-safe toggles, and audio controls."
+		menu_hint_label.text = "Speed, keyboard feel, pause-safe toggles, and audio controls."
 		primary_button.visible = false
 		secondary_button.visible = false
 		options_button.visible = false
@@ -1604,6 +1621,12 @@ func _on_speed_changed(value: float) -> void:
 	_save_progress()
 
 
+func _on_key_sensitivity_changed(value: float) -> void:
+	settings["key_sensitivity"] = int(value)
+	key_sensitivity_value_label.text = "%d%%" % int(value)
+	_save_progress()
+
+
 func _on_cheat_toggled(enabled: bool) -> void:
 	settings["cheat"] = enabled
 	_save_progress()
@@ -1706,6 +1729,7 @@ func _load_level(index: int) -> void:
 		"width": BASE_PADDLE_WIDTH,
 		"height": PADDLE_HEIGHT,
 		"target_width": BASE_PADDLE_WIDTH,
+		"key_velocity": 0.0,
 		"vx": 0.0
 	}
 	_configure_brick_wall_motion()
@@ -1798,16 +1822,26 @@ func _update_paddle(delta: float) -> void:
 	paddle["width"] = lerp(float(paddle["width"]), float(paddle["target_width"]), 1.0 - pow(0.001, delta * movement_slow))
 
 	var move_strength = Input.get_action_strength("move_right") - Input.get_action_strength("move_left")
+	var keyboard_sensitivity = _keyboard_sensitivity_ratio()
+	var keyboard_max_speed = lerpf(260.0, 1120.0, keyboard_sensitivity)
+	var keyboard_accel = lerpf(1100.0, 4200.0, keyboard_sensitivity)
 	if abs(move_strength) > 0.01:
-		var keyboard_speed = 420.0 if bomb_active else 2050.0
-		paddle["pos"].x += move_strength * keyboard_speed * delta
+		if bomb_active:
+			keyboard_max_speed *= 0.42
+			keyboard_accel *= 0.45
+		paddle["key_velocity"] = move_toward(float(paddle["key_velocity"]), move_strength * keyboard_max_speed, keyboard_accel * delta)
+		paddle["pos"].x += float(paddle["key_velocity"]) * delta
 	elif Rect2(Vector2.ZERO, size).has_point(get_local_mouse_position()):
+		paddle["key_velocity"] = 0.0
 		var target_x = get_local_mouse_position().x
 		target_x = clamp(target_x, PLAYFIELD.position.x + paddle["width"] * 0.5, PLAYFIELD.end.x - paddle["width"] * 0.5)
 		if bomb_active:
 			paddle["pos"].x = move_toward(float(paddle["pos"].x), target_x, 460.0 * delta)
 		else:
 			paddle["pos"].x = lerp(float(paddle["pos"].x), target_x, 1.0 - pow(0.0001, delta * movement_slow))
+	else:
+		paddle["key_velocity"] = move_toward(float(paddle["key_velocity"]), 0.0, keyboard_accel * 1.2 * delta)
+		paddle["pos"].x += float(paddle["key_velocity"]) * delta
 	paddle["pos"].x = clamp(paddle["pos"].x, PLAYFIELD.position.x + paddle["width"] * 0.5, PLAYFIELD.end.x - paddle["width"] * 0.5)
 	paddle["vx"] = (paddle["pos"].x - last_paddle_x) / max(delta, 0.001)
 	last_paddle_x = paddle["pos"].x
@@ -2616,6 +2650,7 @@ func _load_progress() -> void:
 		return
 	high_score = int(config.get_value("scores", "high_score", 0))
 	settings["speed"] = int(config.get_value("settings", "speed", settings["speed"]))
+	settings["key_sensitivity"] = int(config.get_value("settings", "key_sensitivity", settings["key_sensitivity"]))
 	settings["cheat"] = bool(config.get_value("settings", "cheat", settings["cheat"]))
 	settings["music"] = bool(config.get_value("settings", "music", settings["music"]))
 	settings["sfx"] = bool(config.get_value("settings", "sfx", settings["sfx"]))
@@ -2627,6 +2662,7 @@ func _save_progress() -> void:
 	var config = ConfigFile.new()
 	config.set_value("scores", "high_score", high_score)
 	config.set_value("settings", "speed", settings["speed"])
+	config.set_value("settings", "key_sensitivity", settings["key_sensitivity"])
 	config.set_value("settings", "cheat", settings["cheat"])
 	config.set_value("settings", "music", settings["music"])
 	config.set_value("settings", "sfx", settings["sfx"])
