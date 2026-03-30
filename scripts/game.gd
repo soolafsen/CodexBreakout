@@ -1361,8 +1361,8 @@ func _brick_fall_speed() -> float:
 func _brick_wall_target_gap() -> float:
 	var progress = float(level_index) / float(max(levels.size() - 1, 1))
 	if _current_theme() == "sinister":
-		return lerpf(88.0, 62.0, progress)
-	return lerpf(132.0, 112.0, progress)
+		return lerpf(46.0, 22.0, progress)
+	return lerpf(100.0, 76.0, progress)
 
 
 func _apply_brick_wall_offset() -> void:
