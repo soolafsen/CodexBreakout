@@ -1403,15 +1403,21 @@ func _screen_shake_enabled() -> bool:
 	return _le_tits_now_mode() == 0
 
 
+func _screen_flash_enabled() -> bool:
+	return _le_tits_now_mode() == 0
+
+
 func _night_mode_enabled() -> bool:
 	return _le_tits_now_mode() == 2
 
 
 func _apply_visual_mode() -> void:
-	modulate = Color("b8bfd1") if _night_mode_enabled() else Color.WHITE
+	modulate = Color("aa9f8f") if _night_mode_enabled() else Color.WHITE
 	if not _screen_shake_enabled():
 		screen_shake = 0.0
 		camera_offset = Vector2.ZERO
+	if not _screen_flash_enabled():
+		screen_flash = 0.0
 
 
 func _brick_wall_target_gap() -> float:
@@ -2329,6 +2335,8 @@ func _float_score(position: Vector2, text: String, color: Color) -> void:
 
 
 func _flash(color: Color, amount: float) -> void:
+	if not _screen_flash_enabled():
+		return
 	flash_color = color
 	screen_flash = max(screen_flash, amount)
 
