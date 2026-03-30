@@ -64,6 +64,8 @@ var flash_color = Color.WHITE
 var camera_offset = Vector2.ZERO
 var laser_cooldown = 0.0
 var last_paddle_x = PLAYFIELD.get_center().x
+var last_mouse_position = Vector2.ZERO
+var prefer_keyboard_control = false
 var current_level_name = ""
 var run_won = false
 var brick_wall_offset = 0.0
@@ -130,6 +132,7 @@ func _ready() -> void:
 	_refresh_menu_ui()
 	_ensure_music_state()
 	_refresh_ui()
+	last_mouse_position = get_local_mouse_position()
 	queue_redraw()
 
 
@@ -1822,19 +1825,31 @@ func _update_paddle(delta: float) -> void:
 	paddle["width"] = lerp(float(paddle["width"]), float(paddle["target_width"]), 1.0 - pow(0.001, delta * movement_slow))
 
 	var move_strength = Input.get_action_strength("move_right") - Input.get_action_strength("move_left")
+	var mouse_position = get_local_mouse_position()
+	var mouse_in_bounds = Rect2(Vector2.ZERO, size).has_point(mouse_position)
+	var mouse_moved = mouse_in_bounds and mouse_position.distance_squared_to(last_mouse_position) > 4.0
+	last_mouse_position = mouse_position
 	var keyboard_sensitivity = _keyboard_sensitivity_ratio()
 	var keyboard_max_speed = lerpf(260.0, 1120.0, keyboard_sensitivity)
 	var keyboard_accel = lerpf(1100.0, 4200.0, keyboard_sensitivity)
 	if abs(move_strength) > 0.01:
+		prefer_keyboard_control = true
 		if bomb_active:
 			keyboard_max_speed *= 0.42
 			keyboard_accel *= 0.45
 		paddle["key_velocity"] = move_toward(float(paddle["key_velocity"]), move_strength * keyboard_max_speed, keyboard_accel * delta)
 		paddle["pos"].x += float(paddle["key_velocity"]) * delta
-	elif Rect2(Vector2.ZERO, size).has_point(get_local_mouse_position()):
+	elif mouse_moved:
+		prefer_keyboard_control = false
 		paddle["key_velocity"] = 0.0
-		var target_x = get_local_mouse_position().x
-		target_x = clamp(target_x, PLAYFIELD.position.x + paddle["width"] * 0.5, PLAYFIELD.end.x - paddle["width"] * 0.5)
+		var target_x = clamp(mouse_position.x, PLAYFIELD.position.x + paddle["width"] * 0.5, PLAYFIELD.end.x - paddle["width"] * 0.5)
+		if bomb_active:
+			paddle["pos"].x = move_toward(float(paddle["pos"].x), target_x, 460.0 * delta)
+		else:
+			paddle["pos"].x = lerp(float(paddle["pos"].x), target_x, 1.0 - pow(0.0001, delta * movement_slow))
+	elif mouse_in_bounds and not prefer_keyboard_control:
+		paddle["key_velocity"] = 0.0
+		var target_x = clamp(mouse_position.x, PLAYFIELD.position.x + paddle["width"] * 0.5, PLAYFIELD.end.x - paddle["width"] * 0.5)
 		if bomb_active:
 			paddle["pos"].x = move_toward(float(paddle["pos"].x), target_x, 460.0 * delta)
 		else:
